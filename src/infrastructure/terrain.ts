@@ -10,9 +10,11 @@
  *  - base-cuervos: casilla morada (conquistada por los cuervos).
  */
 
+import type { Terrain } from "../domain/terrain.ts";
 import { parseSvgPathElements } from "./svg-parse.ts";
 
-export type TerrainName = "normal" | "base-neutral" | "base-lobos" | "base-cuervos";
+/** Alias del tipo del dominio (el tipo vive en `src/domain/terrain.ts`). */
+export type TerrainName = Terrain;
 
 export const GREEN = "#8fff91";
 export const YELLOW = "#ffff00";

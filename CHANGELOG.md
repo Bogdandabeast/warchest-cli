@@ -1,5 +1,132 @@
 # Changelog
 
+## v0.3.1 — Rondas y partida jugable en terminal (ampliación del ciclo 2)
+
+- **Flujo de rondas en el dominio (spec §3.5 / §4.2)**: `Game` gana la máquina
+  de fases `phase` (`setup | playing | round-over | finished`) y el estado
+  `passed` por jugador. Métodos: `startRound` (RobandoFase: roba 3 monedas a
+  cada jugador, fija al jugador con iniciativa, resetea la reclamación e
+  incrementa `round`), `endRound` (FinRondaFase: descarta las manos),
+  `nextTurn` (alternancia) y `retire` (pase sin descarte cuando la mano queda
+  vacía). `pass` ahora marca al jugador como pasado de la ronda; la iniciativa
+  reclamada se aplica en la ronda siguiente. `GamePhase` y `coin-spent` como
+  tipos nuevos.
+- **Reglas finales de las unidades (correcciones del usuario)**:
+  - *Ballestero*: ataca a la **primera unidad en línea recta** — si la casilla
+    intermedia está ocupada, esa es el objetivo (no la de detrás).
+  - *Caballería*: su táctica **exige objetivo de ataque** (no vale solo
+    moverse) y prevalida la regla del Caballero antes de moverse.
+  - *Lancero*: la embestida también prevalidada contra el Caballero (no
+    avanza ni gasta si la rechaza) — ambos cargadores dejan de mutar el
+    tablero en acciones fallidas.
+  - *Clérigo (I)*: tras **Atacar o Dominar** con éxito roba 1 moneda de su
+    bolsa a la mano (evento `drawn`); la UI mantiene el turno del jugador
+    para usarla de inmediato.
+  - *Guerrero (I)*: **encadena maniobras las veces que quiera**, pagando cada
+    una con una moneda de su propia pila (que sale del juego, como un ataque)
+    y **nunca la última** (pila ≥ 2; evento `coin-spent`).
+  - *Espadachín (I)* y *Mercenario (I)*: la concesión era solo un evento en
+    v0.3.0; ahora hay una **cola real de maniobras gratis**
+    (`grantFreeManeuver`/`executeFreeManeuver`, tipos `FreeManeuverKind`
+    `move | maneuver | guerrero`) que el flujo de turnos ejecuta sin gastar
+    moneda, con limpieza de concesiones obsoletas al salir la unidad del
+    tablero (`pruneFreeManeuvers`).
+- **Partida jugable 1v1 en la terminal**: `src/scripts/play.ts`
+  (`bun run play`) — hot-seat (dos jugadores comparten terminal): draft
+  interactivo (reutiliza `runDraft` exportado por `setup-draft.ts`) → rondas
+  completas con robo, alternancia y fin de ronda → las 9 acciones con
+  **blancos guiados por listas de opciones válidas** (nunca coordenadas a
+  ciegas) → maniobras gratis ofrecidas antes de pasar el turno → victoria al
+  colocar las 6 fichas. Render por turno de un **mapa ASCII del tablero**
+  (celdas `A0`–`G12` con facciones, unidades y pilas) más paneles de mano,
+  reserva y fichas. Mapa/decisiones: ver DECISIONS.md.
+- **Pruebas**: 91 tests verdes — 5 nuevos de rondas (robo de 3, pase y fin de
+  ronda con reciclaje de descarte, `retire` con mano vacía, iniciativa
+  aplicada en la siguiente ronda, bloqueos de fase) y los de las reglas
+  finales (Ballestero con intermedia ocupada, Caballería sin objetivo y
+  contra Caballero, Lancero contra Caballero, Clérigo×2, cadena del
+  Guerrero). `bun run check:all` en verde.
+
+## v0.3.0 — Ciclo 2: Configuración de partida (draft + bolsas + control)
+
+- **Terreno movido al dominio**: nuevo `src/domain/terrain.ts` con el tipo
+  `Terrain` (`normal | base-neutral | base-lobos | base-cuervos`) y helpers
+  (`isLocationTerrain`, `startZoneOf`). `BoardNode` ahora tiene `terrain`
+  (por defecto `normal`) en lugar del flag `startZone` — la base de inicio
+  del jugador se deriva del terreno. `src/infrastructure/terrain.ts` reutiliza
+  el tipo del dominio (`TerrainName = Terrain`); los scripts de assets siguen
+  funcionando igual.
+- **Solo las bases son localizaciones**: `BoardNode.isLocation()` devuelve
+  true solo para los 10 terrenos de base (6 neutrales + 2 de cada jugador);
+  las 27 casillas verdes normales son solo de movimiento (no reciben fichas
+  ni despliegues).
+- **Control con fichas (spec §3.2.1)**: `BoardNode` gestiona UNA ficha de
+  dominio por localización — `addControlMarker` reemplaza la ficha enemiga
+  (conquista) y devuelve la suya, `removeControlMarker`, `controlledBy`,
+  `controlMarkers`, `isControlledBy`, `isNeutral`. `Board` añade
+  `placeControlMarker`/`removeControlMarker` (solo localizaciones),
+  `getControlledLocations`, `countControlMarkers` y la condición de victoria
+  (colocar las 6 fichas).
+- **Unidad como pila de monedas (spec §3.2.3)**: `src/domain/unit.ts` con
+  `Unit` (tipo, dueño, posición, `coins` como vida): `addCoin` (Reforzar),
+  `removeCoin` (retira la moneda de arriba; `false` si la pila queda vacía),
+  `isReinforced()` (2+ monedas). `Board` mantiene el registro de unidades
+  (`placeUnit`, `moveUnit`, `removeUnit`, `unitAt`, `findUnit`,
+  `getUnitsByPlayer`…).
+- **Jerarquía de monedas (aprobada por el usuario)**: `Coin` (abstracta) →
+  `UnitCoin(tipo)` + `RoyalCoin` en `src/domain/coins.ts`. La moneda real SÍ
+  vive dentro de la bolsa (`addRoyal` en la colección), se roba y se descarta
+  como una más; nunca va a la reserva. Las colecciones (`CoinCollection`
+  abstracta + `Bag`/`Hand`/`DiscardPile`/`Reserve`) guardan objetos `Coin`.
+- **Player (spec §3.2.4)**: `src/domain/player.ts` con `bag`, `hand`,
+  `discard`, `reserve`, `unitCards`, facción (Lobos = player1, Cuervos =
+  player2), 6 fichas de dominio, `drawCoins` (baraja el descarte si la bolsa
+  se agota), `discardHand` y `canRecruit`.
+- **Configuración de partida (spec §4.1)**: `src/domain/game-setup.ts` —
+  `dealDraftCards` (8 al azar de las 16), `DraftSession` con el patrón
+  1-2-2-2-1 expandido a 8 elecciones (player1 elige primero), y
+  `configureGame` que tras el draft monta la bolsa (moneda real + 2 por tipo)
+  y la reserva (total − 2 por tipo), coloca 2 fichas de dominio iniciales
+  sobre las bases de cada jugador (C1/F2 y B10/E11, vacías de tropas) y
+  otorga la iniciativa al segundo en elegir (player2).
+- **`SVGBoardLoader` lee el board compuesto**: ya no usa los playmats como
+  fuente del tablero (decisión del usuario) — carga
+  `assets/board/board-1v1.svg` (generado por `bun run board-terrain`),
+  clasifica terrenos con `classifyComposedBoardLocations` (los ids de rejilla
+  salen de los `cell-*`), valida los conteos 27/6/2/2 y calcula la adyacencia
+  por geometría. `board.ts` y los tests se actualizaron (37 casillas, D6 con
+  sus 6 vecinos, bases C1/F2 y B10/E11).
+- **Geometría de hexágonos**: `src/domain/geometry.ts` con `distanceInHexes`
+  (BFS), `hexesInStraightLine` (para Ballestero/Lancero), `hexesAtRange` y
+  `reachableWithin` (movimientos de 2 de Caballería ligera y Guardia Real).
+- **`Game` + nueve acciones (spec §3.4 y §4.3)**: `src/domain/game.ts` con
+  `deploy`, `bolster`, `executeManeuver` (move/attack/control/ability),
+  `claimInitiative`, `recruit` y `pass`. Reglas aplicadas:
+  - Desplegar: localización vacía controlada, una unidad por tipo (2 para
+    Infantería), Explorador puede desplegar adyacente a un aliado.
+  - Maniobras: descartan boca arriba una moneda del tipo de la unidad (la
+    moneda Real en la táctica de la Guardia Real), solo si tiene éxito.
+  - Atacar: retira la moneda de arriba de la pila enemiga y esa moneda sale
+    del juego (a la caja). Caballero solo atacable por unidades reforzadas;
+    Piquero contraataca en el mismo instante; Guardia Real puede sacrificar
+    moneda de reserva; Arquero/Lancero (X) no pueden usar la acción Atacar.
+  - Dominar: una ficha por localización; al colocar la última se gana
+    (`winner`).
+- **Habilidades de las 16 unidades (tabla del usuario)**:
+  `src/domain/abilities.ts` con las tácticas activables (Alférez, Arquero,
+  Ballestero, Caballería, Caballería ligera, Guardia Real, Infantería,
+  Lancero, Mariscal) y los atributos (I) aplicados en el motor de acciones
+  (Caballero, Piquero, Guardia Real, Espadachín — evento free-maneuver,
+  Explorador, Infantería — 2 unidades, Mercenario — evento al reclutar).
+- **Draft interactivo por terminal**: `src/scripts/setup-draft.ts`
+  (`bun run setup-draft`) reparte 8 cartas, alterna jugadores (1-2-2-2-1),
+  muestra las disponibles, y al terminar imprime el resumen de bolsa/reserva/
+  fichas/iniciativa. Se añadieron los aliases de scripts (`board`, `terrain`,
+  `board-terrain`, `render`, `setup-draft`) en `package.json`.
+- **Pruebas**: 76 tests verdes (coins, player, game-setup, board con control
+  y unidades, loader del board compuesto —incluidos SVG inválidos—, `Game` y
+  habilidades). `bun run check:all` en verde.
+
 ## v0.2.0 — Ciclo 1.5: Herramientas de desarrollo (ESLint, Husky, commitlint)
 
 - **TypeScript 7.0.2 (última versión)** como compilador único
