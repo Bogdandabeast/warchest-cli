@@ -61,14 +61,11 @@
 bun install              # instalar dependencias
 bun run check            # typecheck (tsc --noEmit)
 bun test                 # pruebas (bun:test)
-bun run board            # regenerar warchest_playmat_1v1.svg desde el base
-bun run terrain          # regenerar assets/terrain/*.svg desde el playmat 1v1
-bun run board-terrain    # reconstruir assets/board/board-1v1.svg desde los tiles
-                         # y mostrar el tablero como mapa ASCII en la terminal
-bun run render           # renderizar el tablero en la terminal (hexágonos de
-                         # colores) desde assets/board/board-1v1.svg; flag
-                         # --playmat para el playmat original. Se ajusta a
-                         # ancho y alto de la terminal para no scrollear.
+# Scripts de assets (sin alias en package.json, se ejecutan directamente):
+bun run src/scripts/build-playmat-1v1.ts      # regenerar warchest_playmat_1v1.svg
+bun run src/scripts/build-terrain-svgs.ts     # regenerar assets/terrain/*.svg
+bun run src/scripts/build-board-from-terrain.ts  # reconstruir assets/board/board-1v1.svg
+bun run src/scripts/render-board-terminal.ts  # render hexágonos en terminal
 ```
 
 ## Estado actual y próximos pasos

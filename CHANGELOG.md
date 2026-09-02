@@ -46,10 +46,12 @@
   `classifyBoardLocations` (playmat) y `classifyComposedBoardLocations`
   (board compuesto, suma el translate del grupo `cell-*` al centro del path),
   con los colores, nombres de archivo y símbolos de los 4 terrenos.
-- **Scripts**: `package.json` con `check`, `test`, `board`, `terrain`,
-  `board-terrain` y los previstos en la spec §13 adaptados al estado actual
-  del repo (`dev`/`start` apuntan a `index.ts` hasta que existan
-  `src/server/` y `src/client/` en ciclos 6–7).
+- **Scripts**: `package.json` con solo los comandos de la spec §13 y los
+  previstos (`dev`, `start`, `test`, `check`); `dev`/`start` apuntan a
+  `index.ts` hasta que existan `src/server/` y `src/client/` en ciclos 6–7.
+  Los scripts de assets (`build-playmat-1v1`, `build-terrain-svgs`,
+  `build-board-from-terrain`, `render-board-terminal`) se ejecutan
+  directamente con `bun run src/scripts/…`.
 - **Pruebas** (`bun:test`): 17 tests — dominio (`BoardNode`/`Board`), loader
   contra los dos playmats (37 casillas, ids de rejilla, bases, adyacencias) y
   helper de parseo. `bun run check` y `bun test` en verde.
