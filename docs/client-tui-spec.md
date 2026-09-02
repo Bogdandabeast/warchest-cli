@@ -220,12 +220,8 @@ La TUI emite intenciones al motor y redibuja con el snapshot devuelto:
   `npx skills add anomalyco/opentui --skill opentui --yes` la reinstala o
   actualiza cuando haga falta.
 
-## 10. Decisiones abiertas (preguntar al usuario antes de cerrar)
+## 10. Decisiones abiertas
 
-1. `@opentui/core` (imperativo, recomendado) vs `@opentui/react`.
-2. Rama base del trabajo: sobre `ciclo-2-configuracion` (PR abierta) o
-   esperar a que se mergee.
-3. Ratón: opcional atajar "clic en casilla" (no requerido por el diseño).
-4. Nivel FF: ¿borde dorado en TODOS los paneles o solo marcos de ventanas y
-   logo? (La densidad de terminal recomienda lo segundo; `tui-design.md` ya
-   lo deja en marcos principales.)
+1. `@opentui/core` (imperativo) vs `@opentui/react`. **Recomendado: core + keymap**
+   (control total sobre el mapa hexagonal y el render celdar; `react` queda
+   como alternativa válida si el implementador lo prefiere).
