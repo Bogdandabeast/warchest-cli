@@ -1,0 +1,85 @@
+# Configuración de CodeRabbit para warchest-cli
+# Referencia completa: https://docs.coderabbit.ai/reference/configuration
+# Ejemplos: https://docs.coderabbit.ai/configuration/example
+#
+# CodeRabbit lee este archivo desde la raíz del repositorio (la versión de la
+# rama del PR en revisión). Flujo de trabajo: GitHub Flow, cada ciclo de la
+# spec es una rama nueva desde main con su PR (ver AGENTS.md).
+
+# Idioma de las revisiones y del chat (el proyecto y sus docs están en español).
+language: "es-ES"
+# No habilitar funcionalidades early-access.
+early_access: false
+
+reviews:
+  # assertive = más feedback (puede sentirse quisquilloso).
+  # Cambiar a "chill" si resulta demasiado ruidoso.
+  profile: "assertive"
+  # CodeRabbit puede solicitar cambios en el PR cuando detecta problemas.
+  request_changes_workflow: true
+  # Resumen general de alto nivel en la descripción del PR.
+  high_level_summary: true
+  high_level_summary_placeholder: "@coderabbitai summary"
+  # Nada de poemas en el walkthrough.
+  poem: false
+  # Publicar estados de revisión (p. ej. cuando se omite una revisión).
+  review_status: true
+  review_details: false
+  # Walkthrough plegado y con resumen de archivos para reducir ruido.
+  collapse_walkthrough: true
+  changed_files_summary: true
+  # Sin diagramas de secuencia generados automáticamente.
+  sequence_diagrams: false
+
+  # Archivos que se excluyen de la revisión:
+  #  - Los playmats SVG son assets visuales grandes generados por un script;
+  #    su revisión no aporta valor.
+  #  - bun.lock es un lockfile generado; solo añade ruido.
+  files:
+    - "!**/*.svg"
+    - "!bun.lock"
+
+  # Instrucciones por ruta para guiar la revisión según la arquitectura.
+  path_instructions:
+    - path: "src/**"
+      instructions: >
+        Proyecto Bun + TypeScript en modo estricto (tsconfig strict).
+        La capa de dominio (src/domain) debe permanecer pura: sin imports de
+        red ni de UI; solo APIs puras expuestas mediante DTOs.
+        La infraestructura (src/infrastructure) puede leer archivos y usar Bun.
+        Aplicar OOP/SOLID y los patrones de la spec.md (Command, State, Observer,
+        Strategy). Comentarios y mensajes de error en español.
+    - path: "src/**/*.test.ts"
+      instructions: >
+        Pruebas con bun:test. Cubrir casos válidos e inválidos y casos borde
+        (adyacencia, límites del tablero, colecciones de monedas vacías, etc.).
+        Nombres descriptivos. No probar detalles privados de implementación.
+    - path: "*.md"
+      instructions: >
+        Cada ciclo de desarrollo debe actualizar CHANGELOG.md y DECISIONS.md
+        (ver AGENTS.md). Los cambios deben documentar el porqué, no solo el qué.
+
+  auto_review:
+    # Revisar automáticamente todos los PRs abiertos.
+    enabled: true
+    # Re-revisar en cada push.
+    incremental: true
+    # No revisar PRs en draft.
+    drafts: false
+    # GitHub Flow: toda rama de ciclo termina en un PR hacia main.
+    base_branches:
+      - "^main$"
+
+  pre_merge_checks:
+    title_check:
+      mode: warning
+      requirements: "El título del PR debe ser conciso y descriptivo (menos de 60 caracteres)."
+
+# Chat: CodeRabbit responde automáticamente a los mensajes @coderabbitai.
+chat:
+  auto_reply: true
+
+# Herramientas adicionales de análisis (solo activas si hay archivos aplicables).
+tools:
+  ast-grep: {}      # patrones sobre AST en TS/JS
+  markdownlint: {}  # consistencia en docs (CHANGELOG.md, DECISIONS.md, README.md)

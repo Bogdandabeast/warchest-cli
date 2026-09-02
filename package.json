@@ -1,0 +1,20 @@
+{
+  "name": "warchest-ai-cli",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "scripts": {
+    "dev": "bun run --watch src/server/index.ts",
+    "start": "bun src/server/index.ts",
+    "client": "bun src/client/index.ts",
+    "test": "bun test",
+    "check": "bun tsc --noEmit",
+    "board": "bun run src/scripts/build-playmat-1v1.ts"
+  }
+}
