@@ -1,5 +1,27 @@
 # Changelog
 
+## v0.2.0 — Ciclo 1.5: Herramientas de desarrollo (ESLint, Husky, commitlint)
+
+- **Lint de código + formato con ESLint** (`eslint.config.js`, flat config
+  de ESLint 10): `@eslint/js` recomendado + `typescript-eslint`
+  (recommended + strict + stylistic + recommendedTypeChecked, lints con
+  información de tipos) y **ESLint Stylistic** (`@stylistic/eslint-plugin`)
+  como formateador estilo-Prettier (indent 2, comillas dobles, semi,
+  1tbs, trailing commas, max-len 110). **Prettier fue desinstalado**: una
+  sola herramienta para lint y formato (`bun run lint:fix` / `format`).
+- **Husky + lint-staged**: hook `pre-commit` que corre `lint-staged`
+  (eslint --fix solo sobre archivos staged) + `bun run check` (tsc) +
+  `bun test`; y hook `commit-msg` que valida el mensaje con **commitlint**
+  (conventional commits: `feat:`, `fix:`, `chore:`, …).
+- **Verificaciones TS + tests**: scripts `lint`, `lint:fix`, `format`,
+  `format:check` y `check:all` (typecheck + lint + tests); el hook
+  pre-commit ya las ejecuta en cada commit.
+- **TypeScript actualizado a 6.0.3** (la última versión estable; la 7.0.2
+  no es compatible aún con typescript-eslint, que exige `<6.1.0`). Se
+  registra `types` como `["bun"]` en el tsconfig.
+- El código del repo fue reformateado automáticamente por ESLint Stylistic
+  (solo cambios de estilo; sin cambios de comportamiento) — 17 tests verdes.
+
 ## v0.1.0 — Ciclo 1: Tablero 1v1 desde SVG
 
 - **Dominio** (`src/domain/`):

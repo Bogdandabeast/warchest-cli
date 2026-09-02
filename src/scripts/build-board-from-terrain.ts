@@ -35,7 +35,7 @@ import {
   TERRAIN_FILE,
   TERRAIN_SYMBOL,
 } from "../infrastructure/terrain.ts";
-import type { BoardLocation, TerrainName } from "../infrastructure/terrain.ts";
+import type { TerrainName } from "../infrastructure/terrain.ts";
 
 const projectRoot = resolve(import.meta.dir, "..", "..");
 const playmatPath = resolve(projectRoot, "warchest_playmat_1v1.svg");
@@ -47,8 +47,6 @@ const outputPath = resolve(outputDir, "board-1v1.svg");
 const CENTER_EPSILON = 0.5;
 /** Las casillas tienen r1 ≈ 136.9; los marcadores interiores r1 ≈ 68. */
 const CELL_RADIUS_THRESHOLD = 100;
-
-type Cell = BoardLocation;
 
 const distance = (ax: number, ay: number, bx: number, by: number) => Math.hypot(ax - bx, ay - by);
 
@@ -63,7 +61,6 @@ interface Tile {
   cx: number;
   cy: number;
 }
-
 
 /** Lee el contenido interno del grupo raíz de un tile (coordenadas absolutas). */
 function loadTile(name: TerrainName): Tile {
@@ -167,8 +164,8 @@ for (const cell of cells) {
   }
   if (distance(cell.cx, cell.cy, rendered.cx, rendered.cy) > CENTER_EPSILON) {
     throw new Error(
-      `Casilla ${cell.id} desalineada: playmat (${fmt(cell.cx)}, ${fmt(cell.cy)}) ` +
-        `vs compuesta (${fmt(rendered.cx)}, ${fmt(rendered.cy)}).`,
+      `Casilla ${cell.id} desalineada: playmat (${fmt(cell.cx)}, ${fmt(cell.cy)}) `
+      + `vs compuesta (${fmt(rendered.cx)}, ${fmt(rendered.cy)}).`,
     );
   }
 }

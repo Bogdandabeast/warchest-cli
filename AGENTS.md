@@ -22,11 +22,27 @@
 - CodeRabbit revisa automáticamente cada PR (config en `.coderabbit.yaml`,
   revisiones en español, perfil `assertive`). Resolver sus comentarios antes
   de mergear.
+- **Nunca mergear automáticamente**: mientras haya una rama de ciclo activa
+  (con trabajo sin terminar o sin aprobar), NO se mergea a `main` ni se abre
+  PR sin que el usuario lo pida. Se continúa trabajando en esa rama hasta
+  que todo esté bien (checks verdes, hooks pasando, docs actualizadas) y el
+  usuario autorice el merge explícitamente.
+- **PROHIBIDO saltarse los hooks de commit**: `--no-verify` (o cualquier
+  forma de evadirlos) está prohibido sin excepción. Si un hook falla, se
+  arregla el problema; nunca se omite.
 - Definición de "done" por ciclo (spec §12):
-  1. `bun run check` sin errores (tsc `--noEmit`).
-  2. `bun test` en verde.
+  1. `bun run check:all` en verde (tsc + eslint + tests) o, mínimo,
+     `bun run check` + `bun run lint` + `bun test`.
+  2. Mensaje de commit **conventional** (feat/fix/chore/docs/… — lo valida
+     commitlint en el hook `commit-msg`).
   3. `CHANGELOG.md` y `DECISIONS.md` actualizados (por qué, no solo qué).
   4. Commit atómico en la rama con solo los cambios del ciclo.
+
+- **Hooks de git (Husky v9)**: en cada commit se ejecutan automáticamente
+  `.husky/pre-commit` (lint-staged: eslint --fix sobre archivos staged +
+  `bun run check` + `bun test`) y `.husky/commit-msg` (commitlint). Si el
+  commit falla, es por estos hooks — se corrige el problema y se reintenta;
+  jamás se saltan (ver prohibición arriba).
 
 ## Contexto del proyecto
 
@@ -58,9 +74,12 @@
 ## Comandos
 
 ```bash
-bun install              # instalar dependencias
-bun run check            # typecheck (tsc --noEmit)
+bun install              # instalar dependencias (corre el prepare → husky)
+bun run check            # typecheck (tsc --noEmit, TypeScript 6.0.3)
+bun run lint             # eslint . (código + formato estilo-Prettier)
+bun run lint:fix         # eslint . --fix (== bun run format)
 bun test                 # pruebas (bun:test)
+bun run check:all        # typecheck + lint + tests en un comando
 # Scripts de assets (sin alias en package.json, se ejecutan directamente):
 bun run src/scripts/build-playmat-1v1.ts      # regenerar warchest_playmat_1v1.svg
 bun run src/scripts/build-terrain-svgs.ts     # regenerar assets/terrain/*.svg
@@ -84,6 +103,10 @@ bun run src/scripts/render-board-terminal.ts  # render hexágonos en terminal
     (`bun run board-terrain`) y render hexágonos en terminal
     (`bun run render`). La clasificación de terrenos vive en
     `src/infrastructure/terrain.ts`.
+  - **Ciclo 1.5 — Tooling (rama `ciclo-1-linting`)**: ESLint como lint +
+    formato (ESLint Stylistic, sin Prettier), Husky v9 (pre-commit con
+    lint-staged + tsc + tests, commit-msg con commitlint conventional
+    commits), scripts `lint`/`format`/`check:all` y TypeScript 6.0.3.
 - Siguiente ciclo (ciclo 2): configuración de partida — colecciones de
   monedas (`Bag`, `Hand`, `DiscardPile`, `Reserve`), bolsas iniciales,
   colocación de las 2 fichas de dominio iniciales en las bases (y la

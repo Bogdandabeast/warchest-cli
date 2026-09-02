@@ -1,0 +1,3 @@
+# Valida el mensaje de commit con commitlint (conventional commits:
+# feat/fix/chore/docs/refactor/test/... ver commitlint.config.js).
+bunx --no-install commitlint --edit $1

@@ -49,11 +49,11 @@ function filterSvg(svg: string): { output: string; removed: SvgPathElement[] } {
 
   for (const match of svg.matchAll(PATH_ELEMENT_RE)) {
     output += svg.slice(cursor, match.index);
-    cursor = match.index! + match[0].length;
+    cursor = match.index + match[0].length;
 
     const path = parseSvgPath(match[0]);
-    const shouldRemove =
-      path.isHexagon && path.stroke !== undefined && REMOVE_STROKES.has(path.stroke);
+    const shouldRemove
+      = path.isHexagon && path.stroke !== undefined && REMOVE_STROKES.has(path.stroke);
 
     if (shouldRemove) {
       removed.push(path);
@@ -80,7 +80,7 @@ function removeOrphanIconGroups(svg: string): { output: string; removed: string[
       );
     }
     const match = matches[0]!;
-    output = output.slice(0, match.index) + output.slice(match.index! + match[0].length);
+    output = output.slice(0, match.index) + output.slice(match.index + match[0].length);
     removed.push(id);
   }
 
@@ -114,16 +114,16 @@ for (const id of gruposEliminados) {
 const expectedRemoved = 14; // 10 casillas grandes + 4 decorativas pequeñas
 if (removed.length !== expectedRemoved) {
   throw new Error(
-    `Se esperaban ${expectedRemoved} hexágonos a eliminar, pero se encontraron ${removed.length}. ` +
-      "Revisa warchest_playmat_base.svg antes de regenerar.",
+    `Se esperaban ${expectedRemoved} hexágonos a eliminar, pero se encontraron ${removed.length}. `
+    + "Revisa warchest_playmat_base.svg antes de regenerar.",
   );
 }
 
 const outputHexagons = hexagonPaths(output);
 if (outputHexagons.length !== 47) {
   throw new Error(
-    `Se esperaban 47 hexágonos conservados (33 verdes + 6 decorativos verdes + 4 amarillos + 4 morados), ` +
-      `pero hay ${outputHexagons.length}.`,
+    `Se esperaban 47 hexágonos conservados (33 verdes + 6 decorativos verdes + 4 amarillos + 4 morados), `
+    + `pero hay ${outputHexagons.length}.`,
   );
 }
 
@@ -155,7 +155,7 @@ for (const id of ORPHAN_ICON_GROUPS) {
 }
 
 writeFileSync(outputPath, output);
-console.log(`\nOK: ${outputPath} generado (${outputHexagons.length} hexágonos: ` +
-  `${outputHexagons.filter((p) => p.stroke === "#8fff91").length} verdes, ` +
-  `${outputHexagons.filter((p) => p.stroke === "#ffff00").length} amarillos, ` +
-  `${outputHexagons.filter((p) => p.stroke === "#9696ff").length} morados).`);
+console.log(`\nOK: ${outputPath} generado (${outputHexagons.length} hexágonos: `
+  + `${outputHexagons.filter((p) => p.stroke === "#8fff91").length} verdes, `
+  + `${outputHexagons.filter((p) => p.stroke === "#ffff00").length} amarillos, `
+  + `${outputHexagons.filter((p) => p.stroke === "#9696ff").length} morados).`);

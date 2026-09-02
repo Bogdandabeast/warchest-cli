@@ -93,14 +93,14 @@ describe("parseSvgPathElements", () => {
     const svg = [
       "<svg>",
       "  <path",
-      '     sodipodi:type="star"',
-      '     style="opacity:1;stroke:#8fff91;stroke-width:9"',
-      '     id="p1"',
-      '     sodipodi:sides="6"',
-      '     sodipodi:cx="1130.4199"',
-      '     sodipodi:cy="663.41779"',
-      '     d="m 0,0 z" />',
-      '  <path id="p2" style="stroke:#8fffff" d="m 1,1 z" />',
+      "     sodipodi:type=\"star\"",
+      "     style=\"opacity:1;stroke:#8fff91;stroke-width:9\"",
+      "     id=\"p1\"",
+      "     sodipodi:sides=\"6\"",
+      "     sodipodi:cx=\"1130.4199\"",
+      "     sodipodi:cy=\"663.41779\"",
+      "     d=\"m 0,0 z\" />",
+      "  <path id=\"p2\" style=\"stroke:#8fffff\" d=\"m 1,1 z\" />",
       "</svg>",
     ].join("\n");
 

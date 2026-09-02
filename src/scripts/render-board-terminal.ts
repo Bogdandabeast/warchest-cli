@@ -86,8 +86,8 @@ function fitToScreen(term: { cols: number; rows: number }): { cols: number; rows
 }
 
 /** Hexágono flat-sided (puntas a los lados) centrado en (cx, cy). */
-function hexagonVertices(cx: number, cy: number, r1: number, r2: number): Array<[number, number]> {
-  const points: Array<[number, number]> = [];
+function hexagonVertices(cx: number, cy: number, r1: number, r2: number): [number, number][] {
+  const points: [number, number][] = [];
   // Los vértices de un flat-sided: ángulos 0°, 60°, 120°, ... en pasos de 60°.
   for (let i = 0; i < 6; i++) {
     const angle = (i * Math.PI) / 3;
@@ -98,12 +98,12 @@ function hexagonVertices(cx: number, cy: number, r1: number, r2: number): Array<
 }
 
 /** ¿El punto está dentro del polígono? (ray casting) */
-function pointInPolygon(x: number, y: number, polygon: Array<[number, number]>): boolean {
+function pointInPolygon(x: number, y: number, polygon: [number, number][]): boolean {
   let inside = false;
   for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
     const [xi, yi] = polygon[i]!;
     const [xj, yj] = polygon[j]!;
-    const intersect = yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
+    const intersect = (yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
     if (intersect) inside = !inside;
   }
   return inside;
@@ -114,7 +114,7 @@ interface RenderContext {
   scaleX: number;
   scaleY: number;
   /** Mapa de píxel lógico (x, y) → terreno, solo donde hay casilla. */
-  cells: Map<string, { location: BoardLocation; vertices: Array<[number, number]> }>;
+  cells: Map<string, { location: BoardLocation; vertices: [number, number][] }>;
 }
 
 /** Convierte un color [r,g,b] a secuencia ANSI truecolor del foreground. */

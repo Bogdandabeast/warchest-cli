@@ -4,15 +4,33 @@
   "type": "module",
   "private": true,
   "devDependencies": {
-    "@types/bun": "latest"
+    "@commitlint/cli": "^21.2.2",
+    "@commitlint/config-conventional": "^21.2.2",
+    "@eslint/js": "^10.0.1",
+    "@stylistic/eslint-plugin": "^5.10.0",
+    "@types/bun": "latest",
+    "eslint": "^10.9.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.4.1",
+    "typescript-eslint": "^8.69.0"
   },
   "peerDependencies": {
-    "typescript": "^5"
+    "typescript": "6.0.3"
   },
   "scripts": {
     "dev": "bun run --watch index.ts",
     "start": "bun index.ts",
     "test": "bun test",
-    "check": "bun tsc --noEmit"
+    "check": "bun tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "eslint . --fix",
+    "format:check": "eslint .",
+    "check:all": "bun run check && bun run lint && bun test",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,mts,cts}": ["eslint --fix"],
+    "*.{js,mjs,cjs}": ["eslint --fix"]
   }
 }

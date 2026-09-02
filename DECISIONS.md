@@ -1,5 +1,34 @@
 # Decisiones de diseño
 
+## v0.2.0 — Herramientas de desarrollo (2026-09-02)
+
+- **ESLint como única herramienta de lint + formato**: se desinstaló Prettier.
+  El formato lo aplica **ESLint Stylistic** (`@stylistic/eslint-plugin`) con
+  el preset `customize` ajustado a las preferencias que tenía Prettier en el
+  repo (indent 2, comillas dobles, `semi: true`, `braceStyle: 1tbs`,
+  `commaDangle: always-multiline`, `max-len` 110). Eliminar Prettier evita
+  dos configuraciones de estilo que pueden chocar (dependencias y tiempos de
+  CI); `eslint --fix` se ejecuta en el hook pre-commit vía lint-staged.
+- **TypeScript 6.0.3, no 7.x**: la 7.0.2 es la `latest` de npm, pero
+  `typescript-eslint` exige `>=4.8.4 <6.1.0` (la 7 es el compilador nuevo
+  nativo; hay que esperar soporte). Se fijó la última estable compatible
+  (6.0.3) y se documentó en el `peerDependencies` del package.json; cuando
+  typescript-eslint soporte TS ≥7, basta actualizar ese campo.
+- **Tsconfig**: se añadió `"types": ["bun"]` para que TypeScript 6 resuelva
+  los tipos ambientales de Bun (sin él, `console`/`process` no se encontraban
+  al actualizar desde 5.x).
+- **`no-non-null-assertion` desactivada (convención del repo)**: el código usa
+  `!` deliberadamente sobre valores ya validados (guardas previas) y con
+  `noUncheckedIndexedAccess` activo la alternativa (chequeos `undefined`
+  repetidos) reduce la legibilidad. Decisión documentada en la propia config
+  para que no se reactive por error.
+- **commitlint conventional commits**: el repo ya usaba mensajes tipo
+  `feat:…`/`chore:…` de facto; commitlint los hace obligatorios en el hook
+  `commit-msg` (tipos estándar + `header-max-length` 100 + `subject-case`
+  lower-case).
+- **Husky v9 con `bun`**: los hooks usan `bunx lint-staged`/`bunx --no-install
+  commitlint` y `bun run check`/`bun test` (Bun como runtime; sin npm).
+
 ## v0.1.0 — Ciclo 1: Tablero 1v1 desde SVG (2026-09-02)
 
 - **Fuente del tablero**: se carga `warchest_playmat_1v1.svg` (generado en el
