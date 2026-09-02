@@ -239,13 +239,36 @@ function render(sourcePath: string): void {
   console.log(`${fg([0x77, 0x88, 0xaa])}${locations.length} casillas renderizadas${RESET}`);
 }
 
-const usePlaymat = process.argv.includes("--playmat");
-const sourcePath = usePlaymat ? PLAYMAT_1V1 : BOARD_TERRAIN;
-
-// El board compuesto desde tiles de terreno se genera con build-board-from-
-// terrain.ts; si aún no existe (o la flag force-build), se construye primero.
-if (!usePlaymat && (!existsSync(sourcePath) || process.argv.includes("--build"))) {
-  execFileSync("bun", ["run", BOARD_BUILD_SCRIPT], { stdio: "inherit" });
+export interface RenderBoardTerminalOptions {
+  /** Fuente del tablero: board compuesto desde tiles (por defecto) o playmat 1v1. */
+  source?: "tiles" | "playmat";
+  /** Reconstruir el board desde tiles aunque ya exista (equivalente a --build). */
+  forceBuild?: boolean;
 }
 
-render(sourcePath);
+/**
+ * Renderiza el tablero 1v1 en la terminal. Es la función que usa `index.ts`
+ * como punto de entrada (`bun run start`) y la que reutilizará el cliente TUI
+ * (spec §7). Con `source: "tiles"` (por defecto) renderiza el board compuesto
+ * desde los tiles de terreno y lo construye primero si aún no existe.
+ */
+export function renderBoardTerminal(options: RenderBoardTerminalOptions = {}): void {
+  const usePlaymat = options.source === "playmat";
+  const sourcePath = usePlaymat ? PLAYMAT_1V1 : BOARD_TERRAIN;
+
+  // El board compuesto desde tiles de terreno se genera con build-board-from-
+  // terrain.ts; si aún no existe (o forceBuild), se construye primero.
+  if (!usePlaymat && (!existsSync(sourcePath) || options.forceBuild === true)) {
+    execFileSync("bun", ["run", BOARD_BUILD_SCRIPT], { stdio: "inherit" });
+  }
+
+  render(sourcePath);
+}
+
+// Ejecución directa como script: `bun run src/scripts/render-board-terminal.ts`.
+if (import.meta.main) {
+  renderBoardTerminal({
+    source: process.argv.includes("--playmat") ? "playmat" : "tiles",
+    forceBuild: process.argv.includes("--build"),
+  });
+}

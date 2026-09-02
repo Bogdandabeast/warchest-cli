@@ -33,6 +33,11 @@
   rechaza, también en `terrain.ts`) y `build-board-from-terrain.ts` valida
   los conteos 27/6/2/2 **antes** de escribir el SVG (el log de casillas usa
   los conteos validados, no valores fijos).
+- **`bun run start` dibuja el tablero**: `index.ts` (punto de entrada real de
+  la spec §13) ahora invoca `renderBoardTerminal()` — la misma función que
+  el script `render-board-terminal.ts` (que se mantiene ejecutable en
+  directo vía `import.meta.main`). Al arrancar el proyecto se pinta el
+  tablero 1v1 en la terminal, igual que antes con `bun run render`.
 
 ## v0.1.0 — Ciclo 1: Tablero 1v1 desde SVG
 

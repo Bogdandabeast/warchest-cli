@@ -75,6 +75,8 @@
 
 ```bash
 bun install              # instalar dependencias (corre el prepare → husky)
+bun run start            # dibuja el tablero 1v1 en la terminal (index.ts)
+bun run dev              # igual que start pero con --watch
 bun run check            # typecheck (tsc --noEmit, TypeScript 7.0.2)
 bun run lint             # eslint . (SOLO .js/.mjs/.cjs; sin lint de TS)
 bun run lint:fix         # eslint . --fix
@@ -84,7 +86,7 @@ bun run check:all        # typecheck + lint + tests en un comando
 bun run src/scripts/build-playmat-1v1.ts      # regenerar warchest_playmat_1v1.svg
 bun run src/scripts/build-terrain-svgs.ts     # regenerar assets/terrain/*.svg
 bun run src/scripts/build-board-from-terrain.ts  # reconstruir assets/board/board-1v1.svg
-bun run src/scripts/render-board-terminal.ts  # render hexágonos en terminal
+bun run src/scripts/render-board-terminal.ts  # render hexágonos en terminal (--playmat, --build)
 ```
 
 > **Nota sobre lint**: typescript-eslint está fuera del toolchain (no soporta
@@ -113,7 +115,9 @@ bun run src/scripts/render-board-terminal.ts  # render hexágonos en terminal
     (ESLint Stylistic como formateador estilo-Prettier, **sin Prettier** y
     **sin typescript-eslint**), Husky v9 (pre-commit con lint-staged +
     tsc + tests, commit-msg con commitlint conventional commits) y scripts
-    `lint`/`lint:fix`/`check:all`.
+    `lint`/`lint:fix`/`check:all`. Además `bun run start` dibuja el tablero:
+    `index.ts` llama a `renderBoardTerminal()` (exportada por el renderer,
+    que sigue ejecutable como script con `import.meta.main`).
 - Siguiente ciclo (ciclo 2): configuración de partida — colecciones de
   monedas (`Bag`, `Hand`, `DiscardPile`, `Reserve`), bolsas iniciales,
   colocación de las 2 fichas de dominio iniciales en las bases (y la
