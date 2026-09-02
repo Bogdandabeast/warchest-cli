@@ -2,7 +2,8 @@
 
 > Especificación de UI/UX para el cliente de terminal del War Chest 1v1.
 > La implementará otro agente con **OpenTUI** (`anomalyco/opentui`,
-> @opentui/core + @opentui/keymap; ver §9 para el mapeo a sus primitivas).
+> @opentui/react sobre @opentui/core + @opentui/keymap; ver §9 para el
+> mapeo a sus primitivas).
 > Este documento define QUÉ se ve y CÓMO se juega; el agente decide el CÓMO
 > técnico.
 >
@@ -306,11 +307,15 @@ Cuatro regiones fijas, siempre visibles (proporciones sobre el total):
   dorada; ficha de dominio `▨` (colocada) / `▢` (disponible) / `░` (en la
   mesa del rival).
 
-## 9. Mapeo a OpenTUI (@opentui/core) y límites asumidos
+## 9. Mapeo a OpenTUI (@opentui/react) y límites asumidos
 
 OpenTUI renderiza CELDAS de terminal con cajas flexbox y texto estilado —
 el escenario ideal para este diseño (el arte ASCII y el mapa de medio-
-bloques son texto con colores por celda, no píxeles). Mapeo por región:
+bloques son texto con colores por celda, no píxeles). Se usa el binding
+`@opentui/react` (`createRoot(renderer).render(<App/>)`): los componentes
+del §1—§8 se escriben como funciones JSX; el estado de UI (modo, cursor,
+selección, migas) vive en `app.tsx` y fluye como props + redibujo reactivo.
+Mapeo por región:
 
 - **Regiones ①–④**: cajas flexbox anidadas (dirección row/column, flex,
   gap, padding, border). La disposición del §1 se traduce directo:
@@ -388,9 +393,9 @@ interface GameStateView {
 
 ## 12. Checklist del implementador (orden sugerido)
 
-1. Esqueleto: proyecto Bun + `@opentui/core` (`bun add @opentui/core
-   @opentui/keymap`), paleta del §2, regiones ①–④ fijas con flexbox,
-   redibujo reactivo a eventos de estado.
+1. Esqueleto: proyecto Bun + `@opentui/react` (`bun add @opentui/react
+   @opentui/core react` + `@opentui/keymap`), paleta del §2, regiones ①–④
+   fijas con flexbox, redibujo reactivo a eventos de estado.
 2. Mapa como spans por celda con el algoritmo de
    `render-board-terminal.ts` + cursor de casilla + resaltado contextual
    (mover/atacar).

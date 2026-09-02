@@ -35,42 +35,42 @@ emblemas de facción, glifos de unidad).
    `docs/core-concepts/testing.mdx` (test renderer/snapshots),
    `docs/application-apis/animation.mdx` (máquina de escribir del mensaje).
 
-## 2. Stack (decisiones recomendadas)
+## 2. Stack (decidido con el usuario)
 
-- **`@opentui/core`** (APIs imperativas `BoxRenderable`/`TextRenderable` +
-  `createCliRenderer`), NO React/Solid en primera versión: el mapa necesita
-  control directo de celdas y no queremos un runtime de componentes para 4
-  regiones. Si el implementador lo prefiere, `@opentui/react` es aceptable
-  — PERO el mapa sigue dibujándose como texto por celda.
+- **`@opentui/react`** (bindings de React, `createRoot(renderer).render(<App/>)`),
+  con **`@opentui/core`** como base (`createCliRenderer`). Instalación:
+  `bun add @opentui/react @opentui/core react` (React ≥ 19.2.0 — ver
+  `docs/bindings/react.mdx`).
+- El **mapa hexagonal** se dibuja como texto por celda dentro de un componente
+  (mismas técnicas que `render-board-terminal.ts`, con spans de color por
+  celda); los componentes compuestos (`board`, `panel`, `menu`, `modal`) son
+  funciones que reciben props/estado del engine-view, sin runtime extra.
 - **`@opentui/keymap`** para los atajos: capas por contexto (draft / menú /
   señalar blanco / mano) y comandos con nombre. Para el cursor del tablero
   bastan los eventos `keyInput` directos del renderer.
-- Instalación: `bun add @opentui/core @opentui/keymap`.
-- Requiere Bun ≥ 1.3.0 (este repo ya usa 1.3.x). Zig NO es necesario: las
-   partes nativas vienen precompiladas (ver `docs/getting-started/
-   runtime-support.mdx`).
-
-## 3. Arquitectura propuesta (`src/client/`)
-
-La spec (`spec.md`) reserva `src/client/` para el cliente. Módulos:
+- **tsconfig**: añadir `"jsx": "react-jsx"` y `"jsxImportSource":
+  "@opentui/react"` (ver requisitos en `docs/bindings/react.mdx`).
+- Requiere Bun ≥ 1.3.0 (este repo ya usa 1.3.x) y React ≥ 19.2.0. Zig NO es
+  necesario: las partes nativas vienen precompiladas (ver
+  `docs/getting-started/runtime-support.mdx`).
 
 ```
 src/client/
-  main.ts           # entry: createCliRenderer, bucle de modos, destroy() en todos los paths
-  app.ts            # máquina de estados de UI (modo actual, cursor, selección, migas del plan)
-  engine-view.ts    # adaptador Engine → GameStateView (única puerta al dominio; esconde mano rival)
-  hex-map.ts        # algoritmo de render del mapa (celdas de 6×1, como render-board-terminal.ts)
-  art.ts            # logo, emblemas lobo/cuervo, glifos de unidad, monedas/fichas, marcos FF
-  theme.ts          # paleta del §2 de tui-design
-  keymap.ts         # capas de @opentui/keymap (draft | menu | targeting | hand)
+  main.tsx          # entry: createCliRenderer + createRoot(renderer).render(<App/>), destroy() en todos los paths
+  app.tsx           # máquina de estados de UI (modo actual, cursor, selección, migas del plan) + <App/>
+  engine-view.ts    # adaptador Engine → GameStateView (única puerta al dominio; esconde mano rival) — TS puro
+  hex-map.ts        # algoritmo de render del mapa (celdas de 6×1, como render-board-terminal.ts) — TS puro
+  art.ts            # logo, emblemas lobo/cuervo, glifos de unidad, monedas/fichas, marcos FF — TS puro
+  theme.ts          # paleta del §2 de tui-design — TS puro
+  keymap.ts         # capas de @opentui/keymap (draft | menu | targeting | hand) — TS puro
   views/
-    title.ts        # pantalla de título con logo (Enter)
-    draft.ts        # parrilla de 8 cartas + cursor + descripción de la carta enfocada
-    board.ts        # mapa + cursor de casilla + resaltado contextual + leyenda
-    panels.ts       # cabecera (①) y columna derecha (③): paneles de jugador + INFO
-    menu.ts         # menú de acciones (④) con filtrado de viabilidad + sub-menús
-    hand.ts         # mano interactiva (elegir moneda con flechas) para descartes
-    message.ts      # ventana FF de mensajes con máquina de escribir
+    title.tsx       # pantalla de título con logo (Enter)
+    draft.tsx       # parrilla de 8 cartas + cursor + descripción de la carta enfocada
+    board.tsx       # mapa + cursor de casilla + resaltado contextual + leyenda
+    panels.tsx      # cabecera (①) y columna derecha (③): paneles de jugador + INFO
+    menu.tsx        # menú de acciones (④) con filtrado de viabilidad + sub-menús
+    hand.tsx        # mano interactiva (elegir moneda con flechas) para descartes
+    message.tsx     # ventana FF de mensajes con máquina de escribir
     victory.ts      # pantalla de victoria con emblema grande de la facción
   *.test.ts         # tests de helpers PUROS (hex-map, engine-view, viabilidad del menú)
 ```
@@ -145,10 +145,12 @@ La TUI emite intenciones al motor y redibuja con el snapshot devuelto:
 
 ## 7. Orden de implementación y aceptación por paso
 
-1. **Esqueleto** — `bun add @opentui/core @opentui/keymap`; `main.ts` con
-   `createCliRenderer({ exitOnCtrlC: true, backgroundColor: "#0d1526" })`,
-   caja raíz con las 4 regiones (flexbox), `renderer.destroy()` en todos los
-   paths. ✅ corre y sale limpiamente (terminal restaurada).
+1. **Esqueleto** — `bun add @opentui/react @opentui/core react` (+ `@opentui/keymap`);
+   `main.tsx` con `createCliRenderer({ exitOnCtrlC: true, backgroundColor:
+   "#0d1526" })` + `createRoot(renderer).render(<App/>)` (ver quick start en
+   `docs/bindings/react.mdx`), caja raíz con las 4 regiones (flexbox),
+   `renderer.destroy()` en todos los paths. ✅ corre y sale limpiamente
+   (terminal restaurada).
 2. **Mapa** — `hex-map.ts` reusa el algoritmo de `render-board-terminal.ts`
    (37 casillas, medio-bloques, ~88 % de escala) y produce filas de spans
    coloreados; `board.ts` pinta mapa + cursor `┌┐└┘` + leyenda. ✅ unit test
@@ -220,8 +222,8 @@ La TUI emite intenciones al motor y redibuja con el snapshot devuelto:
   `npx skills add anomalyco/opentui --skill opentui --yes` la reinstala o
   actualiza cuando haga falta.
 
-## 10. Decisiones abiertas
+## 10. Decisión de stack (cerrada)
 
-1. `@opentui/core` (imperativo) vs `@opentui/react`. **Recomendado: core + keymap**
-   (control total sobre el mapa hexagonal y el render celdar; `react` queda
-   como alternativa válida si el implementador lo prefiere).
+- **`@opentui/react`** (con `@opentui/core` como base y `@opentui/keymap` para
+  atajos) — elegido por el usuario. No reabrir esta decisión salvo que la
+  implementación encuentre un bloqueo real.
