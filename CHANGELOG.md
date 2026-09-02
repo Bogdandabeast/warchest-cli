@@ -24,6 +24,15 @@
   lint) y el postinstall de reparación de layout.
 - El código del repo fue reformateado automáticamente por ESLint Stylistic
   (solo cambios de estilo; sin cambios de comportamiento) — 17 tests verdes.
+- **Correcciones de revisión de código (CodeRabbit)**: el agregado `Board`
+  ahora valida la integridad del grafo al construirse (rechaza vecinos
+  inexistentes y relaciones no bidireccionales; `areAdjacent` solo refleja
+  conexiones válidas), `SVGBoardLoader.load()` rechaza playmats con
+  cantidades inválidas de casillas o bases (nuevos tests con fixtures
+  mínimos), el límite de filas de la rejilla es A0–G12 (`row > 12` se
+  rechaza, también en `terrain.ts`) y `build-board-from-terrain.ts` valida
+  los conteos 27/6/2/2 **antes** de escribir el SVG (el log de casillas usa
+  los conteos validados, no valores fijos).
 
 ## v0.1.0 — Ciclo 1: Tablero 1v1 desde SVG
 

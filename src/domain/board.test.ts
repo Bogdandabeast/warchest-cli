@@ -73,4 +73,15 @@ describe("Board", () => {
   test("rechaza casillas con id duplicado", () => {
     expect(() => new Board([a, new BoardNode({ id: "A", x: 9, y: 9 })])).toThrow(/duplicada/);
   });
+
+  test("rechaza vecinos que no existen en el tablero", () => {
+    const lonely = new BoardNode({ id: "A", x: 0, y: 0, neighbors: ["Z"] });
+    expect(() => new Board([lonely])).toThrow(/inexistente/);
+  });
+
+  test("rechaza relaciones de vecindad asimétricas", () => {
+    const a = new BoardNode({ id: "A", x: 0, y: 0, neighbors: ["B"] });
+    const b = new BoardNode({ id: "B", x: 100, y: 0, neighbors: [] });
+    expect(() => new Board([a, b])).toThrow(/bidireccional/);
+  });
 });

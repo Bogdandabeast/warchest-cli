@@ -108,6 +108,30 @@ const svgHeader = `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 const playmat = readFileSync(playmatPath, "utf8");
 const cells = classifyBoardLocations(playmat).sort((a, b) => (a.cy === b.cy ? a.cx - b.cx : a.cy - b.cy));
 
+// Conteos esperados por terreno (ver DECISIONS.md: 27 normales, 6 bases sin
+// conquistar, 2 de lobos y 2 de cuervos).
+const EXPECTED_TERRAIN_COUNTS: Readonly<Record<TerrainName, number>> = {
+  normal: 27,
+  "base-neutral": 6,
+  "base-lobos": 2,
+  "base-cuervos": 2,
+};
+
+const counts = new Map<TerrainName, number>();
+for (const terrain of Object.keys(EXPECTED_TERRAIN_COUNTS) as TerrainName[]) counts.set(terrain, 0);
+for (const cell of cells) counts.set(cell.terrain, (counts.get(cell.terrain) ?? 0) + 1);
+
+// Validar ANTES de escribir el SVG: si algún conteo no coincide, el board
+// compuesto no refleja el tablero real y no debe generarse el archivo.
+for (const [terrain, expected] of Object.entries(EXPECTED_TERRAIN_COUNTS) as [TerrainName, number][]) {
+  const actual = counts.get(terrain);
+  if (actual !== expected) {
+    throw new Error(
+      `Conteo de terreno inválido: ${terrain} = ${actual}, se esperaban ${expected} (el SVG no se escribió).`,
+    );
+  }
+}
+
 // ── 2. Cargar tiles y componer el tablero ────────────────────────────────────
 const tiles = new Map<TerrainName, Tile>(
   Object.keys(TERRAIN_FILE).map((name) => [name as TerrainName, loadTile(name as TerrainName)]),
@@ -174,12 +198,11 @@ mkdirSync(outputDir, { recursive: true });
 writeFileSync(outputPath, boardSvg);
 
 // ── 4. Imprimir el tablero en la terminal ────────────────────────────────────
-const counts = new Map<TerrainName, number>();
-for (const terrain of Object.keys(TERRAIN_SYMBOL) as TerrainName[]) counts.set(terrain, 0);
-for (const cell of cells) counts.set(cell.terrain, (counts.get(cell.terrain) ?? 0) + 1);
-
 console.log("Tablero 1v1 compuesto desde assets/terrain/ →", outputPath.replace(projectRoot + "/", ""));
-console.log(`Casillas: ${cells.length} (27 normales · 6 bases sin conquistar · 2 bases de lobos · 2 de cuervos)`);
+console.log(
+  `Casillas: ${cells.length} (${counts.get("normal")} normales · ${counts.get("base-neutral")} `
+  + `bases sin conquistar · ${counts.get("base-lobos")} bases de lobos · ${counts.get("base-cuervos")} de cuervos)`,
+);
 console.log();
 
 const columns = [...new Set(cells.map((c) => round1(c.cx)))].sort((a, b) => a - b);

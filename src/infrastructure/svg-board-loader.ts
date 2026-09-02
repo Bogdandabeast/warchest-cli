@@ -133,7 +133,7 @@ function buildGridIds(locations: Location[]): Map<Location, Position> {
   for (const location of locations) {
     const col = columns.indexOf(round1(location.cx));
     const row = rows.indexOf(round1(location.cy));
-    if (col < 0 || row < 0 || col > 6) {
+    if (col < 0 || row < 0 || col > 6 || row > 12) {
       throw new Error(`Casilla fuera de la rejilla A0–G12: (${location.cx}, ${location.cy})`);
     }
     const id = `${String.fromCharCode(65 + col)}${row}`;

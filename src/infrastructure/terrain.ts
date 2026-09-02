@@ -85,7 +85,7 @@ function withGridIds<T extends CellWithCenter>(cells: T[]): (T & { id: string })
   return cells.map((cell) => {
     const col = columns.indexOf(round1(cell.cx));
     const row = rows.indexOf(round1(cell.cy));
-    if (col < 0 || row < 0 || col > 6) {
+    if (col < 0 || row < 0 || col > 6 || row > 12) {
       throw new Error(`Casilla fuera de la rejilla A0–G12: (${cell.cx}, ${cell.cy})`);
     }
     return { ...cell, id: `${String.fromCharCode(65 + col)}${row}` };
