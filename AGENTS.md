@@ -65,6 +65,9 @@ bun run board            # regenerar warchest_playmat_1v1.svg desde el base
 bun run terrain          # regenerar assets/terrain/*.svg desde el playmat 1v1
 bun run board-terrain    # reconstruir assets/board/board-1v1.svg desde los tiles
                          # y mostrar el tablero como mapa ASCII en la terminal
+bun run render           # renderizar el tablero en la terminal (hexágonos de
+                         # colores) desde assets/board/board-1v1.svg; flag
+                         # --playmat para el playmat original
 ```
 
 ## Estado actual y próximos pasos
@@ -78,7 +81,11 @@ bun run board-terrain    # reconstruir assets/board/board-1v1.svg desde los tile
     (`BoardNode`, `Board`, `Position`, `PlayerId`), `SVGBoardLoader` que
     carga las 37 casillas del playmat con ids A0–G12, adyacencia por
     geometría, 4 bases mapeadas (amarillo→player1, morado→player2) y 17
-    tests verdes. Terrenos extraídos a `assets/terrain/` (`bun run terrain`).
+    tests verdes. Terrenos extraídos a `assets/terrain/` (`bun run terrain`),
+    board compuesto desde tiles en `assets/board/board-1v1.svg`
+    (`bun run board-terrain`) y render hexágonos en terminal
+    (`bun run render`). La clasificación de terrenos vive en
+    `src/infrastructure/terrain.ts`.
 - Siguiente ciclo (ciclo 2): configuración de partida — colecciones de
   monedas (`Bag`, `Hand`, `DiscardPile`, `Reserve`), bolsas iniciales,
   colocación de las 2 fichas de dominio iniciales en las bases (y la

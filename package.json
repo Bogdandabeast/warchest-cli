@@ -16,6 +16,7 @@
     "check": "bun tsc --noEmit",
     "board": "bun run src/scripts/build-playmat-1v1.ts",
     "terrain": "bun run src/scripts/build-terrain-svgs.ts",
-    "board-terrain": "bun run src/scripts/build-board-from-terrain.ts"
+    "board-terrain": "bun run src/scripts/build-board-from-terrain.ts",
+    "render": "bun run src/scripts/render-board-terminal.ts"
   }
 }

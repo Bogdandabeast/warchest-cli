@@ -30,7 +30,12 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { parseSvgPathElements } from "../infrastructure/svg-parse.ts";
-import type { SvgPathElement } from "../infrastructure/svg-parse.ts";
+import {
+  classifyBoardLocations,
+  TERRAIN_FILE,
+  TERRAIN_SYMBOL,
+} from "../infrastructure/terrain.ts";
+import type { BoardLocation, TerrainName } from "../infrastructure/terrain.ts";
 
 const projectRoot = resolve(import.meta.dir, "..", "..");
 const playmatPath = resolve(projectRoot, "warchest_playmat_1v1.svg");
@@ -38,41 +43,17 @@ const terrainDir = resolve(projectRoot, "assets", "terrain");
 const outputDir = resolve(projectRoot, "assets", "board");
 const outputPath = resolve(outputDir, "board-1v1.svg");
 
-const GREEN = "#8fff91";
-const YELLOW = "#ffff00";
-const PURPLE = "#9696ff";
-
-/** Las casillas tienen r1 ≈ 136.9; los marcadores interiores r1 ≈ 68. */
-const CELL_RADIUS_THRESHOLD = 100;
-/** Distancia marcador → casilla que lo contiene (en el SVG, < 6 px). */
-const MATCH_PX = 6;
 /** Tolerancia para comparar centros contra el playmat. */
 const CENTER_EPSILON = 0.5;
+/** Las casillas tienen r1 ≈ 136.9; los marcadores interiores r1 ≈ 68. */
+const CELL_RADIUS_THRESHOLD = 100;
 
-type TerrainName = "normal" | "base-neutral" | "base-lobos" | "base-cuervos";
+type Cell = BoardLocation;
 
-const TERRAIN_FILE: Record<TerrainName, string> = {
-  normal: "terrain-normal.svg",
-  "base-neutral": "terrain-base-neutral.svg",
-  "base-lobos": "terrain-base-lobos.svg",
-  "base-cuervos": "terrain-base-cuervos.svg",
-};
+const distance = (ax: number, ay: number, bx: number, by: number) => Math.hypot(ax - bx, ay - by);
 
-/** Símbolo de cada terreno para el mapa ASCII de la terminal. */
-const TERRAIN_SYMBOL: Record<TerrainName, string> = {
-  normal: ".",
-  "base-neutral": "o",
-  "base-lobos": "L",
-  "base-cuervos": "C",
-};
-
-interface Cell {
-  /** Id de rejilla A0–G12 (igual que el dominio). */
-  id: string;
-  cx: number;
-  cy: number;
-  stroke: string;
-  terrain: TerrainName;
+function round1(value: number): number {
+  return Math.round(value * 10) / 10;
 }
 
 interface Tile {
@@ -83,14 +64,6 @@ interface Tile {
   cy: number;
 }
 
-const distance = (ax: number, ay: number, bx: number, by: number) => Math.hypot(ax - bx, ay - by);
-
-function terrainOf(cellStroke: string, hasMarker: boolean): TerrainName {
-  if (cellStroke === GREEN) return hasMarker ? "base-neutral" : "normal";
-  if (cellStroke === YELLOW) return "base-lobos";
-  if (cellStroke === PURPLE) return "base-cuervos";
-  throw new Error(`Color de casilla inesperado: ${cellStroke}`);
-}
 
 /** Lee el contenido interno del grupo raíz de un tile (coordenadas absolutas). */
 function loadTile(name: TerrainName): Tile {
@@ -109,43 +82,6 @@ function loadTile(name: TerrainName): Tile {
     throw new Error(`Tile ${TERRAIN_FILE[name]} sin hexágono grande.`);
   }
   return { inner: svg.slice(openEnd, closeStart).trim(), cx: hexagon.cx, cy: hexagon.cy };
-}
-
-/** Clasifica las 37 casillas del playmat en su terreno (marcador interior = base). */
-function classifyCells(svg: string): Cell[] {
-  const elements = parseSvgPathElements(svg);
-  const cells = elements.filter(
-    (h) => h.isHexagon && h.r1 !== undefined && h.r1 > CELL_RADIUS_THRESHOLD && h.cx !== undefined && h.cy !== undefined,
-  );
-  if (cells.length !== 37) {
-    throw new Error(`Se esperaban 37 casillas en el playmat, hay ${cells.length}.`);
-  }
-
-  const markers = elements.filter((m) => m.isHexagon && m.r1 !== undefined && m.r1 <= CELL_RADIUS_THRESHOLD);
-  const hasMarker = (cell: SvgPathElement) => markers.some((m) => distance(m.cx!, m.cy!, cell.cx!, cell.cy!) <= MATCH_PX);
-
-  const sorted = [...cells].sort((a, b) => distance(0, 0, a.cx!, a.cy!) - distance(0, 0, b.cx!, b.cy!));
-  const columns = [...new Set(sorted.map((c) => round1(c.cx!)))].sort((a, b) => a - b);
-  const rows = [...new Set(sorted.map((c) => round1(c.cy!)))].sort((a, b) => a - b);
-
-  return sorted.map((cell) => {
-    const col = columns.indexOf(round1(cell.cx!));
-    const row = rows.indexOf(round1(cell.cy!));
-    if (col < 0 || row < 0 || col > 6) {
-      throw new Error(`Casilla fuera de la rejilla A0–G12: (${cell.cx}, ${cell.cy})`);
-    }
-    return {
-      id: `${String.fromCharCode(65 + col)}${row}`,
-      cx: cell.cx!,
-      cy: cell.cy!,
-      stroke: cell.stroke!,
-      terrain: terrainOf(cell.stroke!, hasMarker(cell)),
-    };
-  });
-}
-
-function round1(value: number): number {
-  return Math.round(value * 10) / 10;
 }
 
 /** Renombra los ids internos de un bloque con el sufijo de la casilla (evita duplicados). */
@@ -173,7 +109,7 @@ const svgHeader = `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 
 // ── 1. Clasificar casillas del playmat ────────────────────────────────────────
 const playmat = readFileSync(playmatPath, "utf8");
-const cells = classifyCells(playmat).sort((a, b) => (a.cy === b.cy ? a.cx - b.cx : a.cy - b.cy));
+const cells = classifyBoardLocations(playmat).sort((a, b) => (a.cy === b.cy ? a.cx - b.cx : a.cy - b.cy));
 
 // ── 2. Cargar tiles y componer el tablero ────────────────────────────────────
 const tiles = new Map<TerrainName, Tile>(

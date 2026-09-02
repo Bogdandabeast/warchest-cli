@@ -33,6 +33,16 @@
   de los tiles + translate por casilla), renombra ids para evitar duplicados,
   verifica que el resultado sea igual al playmat 1v1 (mismas posiciones y
   colores) e imprime el tablero como mapa ASCII en la terminal.
+- **Render del tablero en terminal** (`render-board-terminal.ts`,
+  `bun run render`): dibuja el tablero como hexágonos de colores (ANSI
+  truecolor, medio-bloques ▀) a partir de **`assets/board/board-1v1.svg`**
+  (el board compuesto desde los tiles; se regenera solo si falta). Es el
+  render que reutilizará el cliente TUI (spec §7). Flag `--playmat` para
+  renderizar el playmat original.
+- **Clasificación de terrenos compartida** (`src/infrastructure/terrain.ts`):
+  `classifyBoardLocations` (playmat) y `classifyComposedBoardLocations`
+  (board compuesto, suma el translate del grupo `cell-*` al centro del path),
+  con los colores, nombres de archivo y símbolos de los 4 terrenos.
 - **Scripts**: `package.json` con `check`, `test`, `board`, `terrain`,
   `board-terrain` y los previstos en la spec §13 adaptados al estado actual
   del repo (`dev`/`start` apuntan a `index.ts` hasta que existan

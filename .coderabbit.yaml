@@ -5,7 +5,7 @@
 # CodeRabbit lee este archivo desde la raíz del repositorio (la versión de la
 # rama del PR en revisión). Flujo de trabajo: GitHub Flow, cada ciclo de la
 # spec es una rama nueva desde main con su PR (ver AGENTS.md).
-
+$schema=https://coderabbit.ai/integrations/schema.v2.json
 # Idioma de las revisiones y del chat (el proyecto y sus docs están en español).
 language: "es-ES"
 # No habilitar funcionalidades early-access.

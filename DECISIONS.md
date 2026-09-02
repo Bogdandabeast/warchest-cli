@@ -63,6 +63,19 @@
   compuesto no tenga ids duplicados, y la verificación compara los centros
   **renderizados** (path + translate del grupo) contra el playmat, no los
   `sodipodi:cx/cy` crudos del path (que son los del tile).
+- **Render del tablero sin rasterizadores externos** (`render-board-
+  terminal.ts`): en vez de convertir el SVG a imagen (los trazos de 9 px se
+  pierden a escala de terminal), el renderer reconstruye la geometría
+  flat-sided de cada casilla y pinta medio-bloques Unicode (▀) con ANSI
+  truecolor; las casillas se contraen al 88 % para dejar visible el fondo de
+  la mesa entre ellas. Este mismo módulo será la base del renderizado ASCII
+  del cliente TUI (spec §7).
+- **El renderer usa el board compuesto desde tiles**: la fuente por defecto
+  de `bun run render` es `assets/board/board-1v1.svg`, no el playmat — así el
+  render refleja exactamente lo que construye `build-board-from-terrain.ts`
+  (y lo regenera si no existe). Para eso la clasificación de terrenos vive en
+  `src/infrastructure/terrain.ts` con dos variantes: la del playmat (coords
+  directas) y la del board compuesto (centro = path + translate del grupo).
 - **Fuera de alcance de este ciclo**: marcadores de dominio
   (`controlledBy`/`controlMarkers`), unidades y config de partida. `BoardNode`
   solo modela geometría + base de inicio; el resto llega en ciclos 2–3 según
