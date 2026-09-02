@@ -45,6 +45,17 @@
   `bun run render` (que no muestra unidades); los blancos de cada acción se
   ofrecen como **listas de opciones válidas** para no escribir coordenadas a
   ciegas. La cola free-maneuver se muestra antes de pasar el turno.
+- **Ajustes de la revisión de código (CodeRabbit)**: la táctica de la
+  Infantería es **atómica** (todas las maniobras se validan antes de aplicar
+  ninguna: sin efectos parciales ni moneda gastada si algo falla) y comparte la
+  colocación de fichas con la acción Dominar (`Game.controlLocation`), así el
+  dominio con Infantería también detecta la victoria. `Unit` encapsula la pila
+  (solo lectura, validada) y su `id` es por INSTANCIA (las dos Infanterías del
+  mismo jugador se distinguen; no deriva de la posición). `RandomSource` se
+  valida en [0, 1) en `Bag.draw` y `shuffle` (un 1 devolvía índices fuera de
+  rango); la reserva rechaza la moneda real por cualquier vía; `configureGame`
+  valida las bases de ambos jugadores antes de colocar fichas; y los eventos
+  diferencian `coin-lost` (pila dañada) de `unit-destroyed` (unidad fuera).
 
 ## v0.3.0 — Ciclo 2: Configuración de partida (2026-09-02)
 

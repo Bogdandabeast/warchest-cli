@@ -173,6 +173,5 @@ bun run render           # render hexágonos en terminal (--playmat, --build)
   cuando el usuario lo autorice (nunca push directo). Después, ciclos
   siguientes de la spec: servidor/cliente y TUI (spec §6-7, estructura
   `src/shared/`, `src/server/`, `src/client/`), DTOs/`toDTO`, y la parte
-  online (opcional IA). `reglas.md` sigue pendiente de crear desde la
-  conversación (las reglas confirmadas están en `DECISIONS.md` y los
+  online (opcional IA). `reglas.md` sigue pendiente de crear desde  la conversación (las reglas confirmadas están en `DECISIONS.md` y los
   comentarios del código).

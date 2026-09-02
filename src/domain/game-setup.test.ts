@@ -7,6 +7,8 @@ import {
   DRAFT_PICK_SEQUENCE,
   DRAFT_PATTERN,
 } from "./game-setup.ts";
+import { Board } from "./board.ts";
+import { BoardNode } from "./board.ts";
 import { UNIT_TYPES } from "./units.ts";
 import { CONTROL_MARKERS_PER_PLAYER } from "./player.ts";
 
@@ -111,15 +113,30 @@ describe("configureGame", () => {
     expect(config.player1.controlMarkers).toBe(CONTROL_MARKERS_PER_PLAYER);
   });
 
-  test("no añade más fichas si el board ya está configurado (idempotente por tablero nuevo)", async () => {
+  test("configurar dos veces el mismo board no incrementa las fichas (una por localización)", async () => {
     const board = await new SVGBoardLoader().load();
     const chosen = {
       player1: ["arquero", "caballeria", "alferez", "piquero"],
       player2: ["lancero", "guardia-real", "infanteria", "explorador"],
     } as const;
     configureGame(board, chosen);
-    // El mismo board: colocar 2 fichas sobre una base ya controlada reemplaza
-    // pero no incrementa (una ficha por localización).
+    configureGame(board, chosen);
+    // Recolocar sobre una base ya controlada reemplaza la ficha pero no
+    // incrementa el total (una ficha por localización).
     expect(board.countControlMarkers("player1")).toBe(2);
+    expect(board.countControlMarkers("player2")).toBe(2);
+  });
+
+  test("un tablero sin las 2 bases de un jugador se rechaza sin colocar fichas", () => {
+    // Tablero mínimo solo con las 2 bases de player1 (player2 no tiene).
+    const board = new Board([
+      new BoardNode({ id: "A1", x: 0, y: 0, terrain: "base-lobos" }),
+      new BoardNode({ id: "A2", x: 0, y: 1, terrain: "base-lobos" }),
+    ]);
+    const chosen = { player1: ["arquero"], player2: ["piquero"] } as const;
+    expect(() => configureGame(board, chosen)).toThrow(/2 bases/);
+    // La validación previa evita la mutación parcial del tablero.
+    expect(board.countControlMarkers("player1")).toBe(0);
+    expect(board.countControlMarkers("player2")).toBe(0);
   });
 });

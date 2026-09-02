@@ -73,6 +73,14 @@ describe("Bag", () => {
     expect(d2.complete).toBe(false);
     expect(bag.isEmpty()).toBe(true);
   });
+
+  test("draw rechaza fuentes aleatorias fuera de [0, 1)", () => {
+    const bag = new Bag();
+    bag.addUnit("arquero");
+    expect(() => bag.draw(1, () => 1)).toThrow(/\[0, 1\)/);
+    expect(bag.total()).toBe(1); // sin robar nada
+    expect(() => bag.draw(1, () => -0.1)).toThrow(/\[0, 1\)/);
+  });
 });
 
 describe("Hand", () => {
@@ -113,6 +121,19 @@ describe("Reserve", () => {
     expect(discard.countUnit("arquero")).toBe(1);
     expect(reserve.recruit("piquero", discard)).toBe(false);
   });
+
+  test("la reserva rechaza la moneda real por cualquier vía de inserción", () => {
+    const reserve = new Reserve();
+    reserve.addUnit("arquero");
+    expect(() => reserve.add(new RoyalCoin())).toThrow(/moneda real/);
+    expect(() => reserve.addRoyal()).toThrow(/moneda real/);
+    // mergeFrom valida antes de mutar: ni la reserva ni la fuente cambian.
+    const discard = new DiscardPile();
+    discard.addRoyal();
+    expect(() => reserve.mergeFrom(discard)).toThrow(/moneda real/);
+    expect(discard.hasRoyal()).toBe(true);
+    expect(reserve.total()).toBe(1); // solo la moneda de tropa inicial
+  });
 });
 
 describe("shuffle", () => {
@@ -124,5 +145,10 @@ describe("shuffle", () => {
     expect(new Set(out).size).toBe(items.length);
     // No muta el original.
     expect(items).toEqual(["a", "b", "c", "d"]);
+  });
+
+  test("rechaza fuentes aleatorias fuera de [0, 1)", () => {
+    expect(() => shuffle(["a", "b"], () => 1)).toThrow(/\[0, 1\)/);
+    expect(() => shuffle(["a", "b"], () => 1.5)).toThrow(/\[0, 1\)/);
   });
 });

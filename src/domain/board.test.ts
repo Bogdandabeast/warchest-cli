@@ -63,8 +63,8 @@ describe("BoardNode", () => {
 
   test("las casillas normales no pueden recibir fichas (solo las bases)", () => {
     const normal = new BoardNode({ id: "D6", x: 0, y: 0 });
-    normal.addControlMarker("player1");
-    expect(normal.controlMarkers).toBe(1); // el nodo no lo impide, el Board sí
+    expect(() => normal.addControlMarker("player1")).toThrow(/no es una localización/);
+    expect(normal.controlMarkers).toBe(0); // el estado no cambia
   });
 
   test("rechaza ser vecino de sí misma", () => {

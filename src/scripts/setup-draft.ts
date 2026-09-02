@@ -26,10 +26,19 @@ import type { UnitType } from "../domain/units.ts";
 import { FACTION_NAMES } from "../domain/player.ts";
 import type { PlayerId } from "../domain/types.ts";
 
-/** Lee una línea del usuario desde la terminal (callback API: funciona en TTY y con pipes). */
-function prompt(rl: Interface, question: string): Promise<string> {
+/**
+ * Lee una línea del usuario desde la terminal (callback API: funciona en TTY
+ * y con pipes). Si la interfaz se cierra mientras se espera, resuelve con
+ * vacío para no dejar la promesa colgada.
+ */
+export function prompt(rl: Interface, question: string): Promise<string> {
   return new Promise((resolve) => {
-    rl.question(question, (answer) => resolve(answer.trim()));
+    const onClose = () => resolve("");
+    rl.once("close", onClose);
+    rl.question(question, (answer) => {
+      rl.removeListener("close", onClose);
+      resolve(answer.trim());
+    });
   });
 }
 
@@ -39,8 +48,8 @@ async function pickCard(
   draft: DraftSession,
 ): Promise<UnitType> {
   const playerId = draft.currentPlayer!;
-  const count = draft.currentCount;
-  console.log(`\n${FACTION_NAMES[playerId]} (${playerId}) — elige ${count} carta(s).`);
+  const lot = draft.currentLot;
+  console.log(`\n${FACTION_NAMES[playerId]} (${playerId}) — carta ${lot.picked + 1} de ${lot.total}.`);
   console.log("Cartas disponibles:");
   draft.available.forEach((type, i) => {
     console.log(`  ${i + 1}. ${UNIT_NAMES[type]}  (${UNIT_TOTAL_COINS[type]} monedas)`);

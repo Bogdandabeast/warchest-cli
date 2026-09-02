@@ -4,13 +4,25 @@
 
 - **Flujo de rondas en el dominio (spec §3.5 / §4.2)**: `Game` gana la máquina
   de fases `phase` (`setup | playing | round-over | finished`) y el estado
-  `passed` por jugador. Métodos: `startRound` (RobandoFase: roba 3 monedas a
-  cada jugador, fija al jugador con iniciativa, resetea la reclamación e
-  incrementa `round`), `endRound` (FinRondaFase: descarta las manos),
-  `nextTurn` (alternancia) y `retire` (pase sin descarte cuando la mano queda
-  vacía). `pass` ahora marca al jugador como pasado de la ronda; la iniciativa
+  `passed` por jugador. Métodos: `startRound` (pasa a `playing`: roba 3
+  monedas a cada jugador, fija al jugador con iniciativa y resetea la
+  reclamación; sube `round` solo si la fase previa era `round-over`),
+  `endRound` (pasa a `round-over`: descarta las manos), `nextTurn`
+  (alternancia) y `retire` (pase sin descarte cuando la mano queda vacía).
+  `pass` ahora marca al jugador como pasado de la ronda; la iniciativa
   reclamada se aplica en la ronda siguiente. `GamePhase` y `coin-spent` como
   tipos nuevos.
+- **Revisión de código (CodeRabbit)**: táctica de la Infantería ATÓMICA (todas
+  las maniobras se validan antes de ejecutar ninguna) y control centralizado
+  (`Game.controlLocation`) que detecta la victoria también en el dominio de la
+  Infantería; `RandomSource` validada en [0, 1) (draw/shuffle); la reserva
+  rechaza la moneda real por cualquier vía; `configureGame` valida las bases de
+  ambos jugadores antes de colocar fichas; `Unit` con pila encapsulada (solo
+  lectura) e id por instancia (las dos Infanterías se distinguen); eventos
+  `coin-lost` diferenciados de `unit-destroyed`; concesiones free-maneuver sin
+  duplicados (Espadachín) y con unidad correcta (unitPos); la Caballería ligera
+  comprueba la ocupación en su atajo de 1 casilla; el Ballestero rechaza
+  disparar a través de aliados.
 - **Reglas finales de las unidades (correcciones del usuario)**:
   - *Ballestero*: ataca a la **primera unidad en línea recta** — si la casilla
     intermedia está ocupada, esa es el objetivo (no la de detrás).

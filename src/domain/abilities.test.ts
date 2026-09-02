@@ -198,6 +198,109 @@ describe("Lancero (X) — embestida", () => {
   });
 });
 
+describe("Infantería (táctica)", () => {
+  test("ejecuta una maniobra distinta por cada Infantería", async () => {
+    const { game, board } = await newGame(["infanteria"], ["piquero"]);
+    const p1 = game.player("player1");
+    const f1 = rawPlace(game, "player1", "infanteria", "C1");
+    rawPlace(game, "player1", "infanteria", "A7");
+
+    // f1 hace un movimiento; f2 (en una base neutral) domina.
+    const neighbors = game.board.getNeighbors("C1").filter((p) => game.board.unitAt(p) === undefined);
+    expect(neighbors.length).toBeGreaterThan(0);
+    const to = neighbors[0]!;
+    giveHand(p1, ["infanteria"]);
+    const result = game.executeManeuver("player1", {
+      kind: "ability",
+      unitType: "infanteria",
+      params: {
+        ability: "footman",
+        maneuvers: [
+          { kind: "move", unitPos: "C1", to },
+          { kind: "control", unitPos: "A7" },
+        ],
+      },
+    });
+    expect(result.success).toBe(true);
+    expect(f1.position).toBe(to); // se movió
+    expect(board.getNode("A7")!.isControlledBy("player1")).toBe(true); // dominó
+    expect(p1.hand.countUnit("infanteria")).toBe(0); // una sola moneda para todas
+  });
+
+  test("valida TODAS las maniobras antes de ejecutar ninguna (sin efectos parciales)", async () => {
+    const { game } = await newGame(["infanteria"], ["piquero"]);
+    const p1 = game.player("player1");
+    const f1 = rawPlace(game, "player1", "infanteria", "C1");
+
+    const neighbors = game.board.getNeighbors("C1").filter((p) => game.board.unitAt(p) === undefined);
+    expect(neighbors.length).toBeGreaterThan(0);
+    const to = neighbors[0]!;
+    // La segunda maniobra referencia a F2, donde NO hay Infantería.
+    giveHand(p1, ["infanteria"]);
+    const result = game.executeManeuver("player1", {
+      kind: "ability",
+      unitType: "infanteria",
+      params: {
+        ability: "footman",
+        maneuvers: [
+          { kind: "move", unitPos: "C1", to },
+          { kind: "move", unitPos: "F2", to },
+        ],
+      },
+    });
+    expect(result.success).toBe(false);
+    expect(f1.position).toBe("C1"); // la primera NO se aplicó
+    expect(p1.hand.countUnit("infanteria")).toBe(1); // no gastó la moneda
+  });
+
+  test("rechaza que la misma Infantería haga dos maniobras", async () => {
+    const { game } = await newGame(["infanteria"], ["piquero"]);
+    const p1 = game.player("player1");
+    rawPlace(game, "player1", "infanteria", "C1");
+
+    const neighbors = game.board.getNeighbors("C1").filter((p) => game.board.unitAt(p) === undefined);
+    expect(neighbors.length).toBeGreaterThan(1);
+    giveHand(p1, ["infanteria"]);
+    const result = game.executeManeuver("player1", {
+      kind: "ability",
+      unitType: "infanteria",
+      params: {
+        ability: "footman",
+        maneuvers: [
+          { kind: "move", unitPos: "C1", to: neighbors[0]! },
+          { kind: "move", unitPos: "C1", to: neighbors[1]! },
+        ],
+      },
+    });
+    expect(result.success).toBe(false);
+    expect(game.board.findUnit("player1", "infanteria")!.position).toBe("C1");
+  });
+
+  test("el dominio de una Infantería detecta la victoria (misma ruta que Dominar)", async () => {
+    const { game, board } = await newGame(["infanteria"], ["piquero"]);
+    // 6ª ficha para player1: 2 iniciales + 3 bases neutrales + esta.
+    const neutrals = board.getLocations().filter((n) => n.isNeutral()).slice(0, 3);
+    expect(neutrals).toHaveLength(3);
+    for (const node of neutrals) {
+      game.board.placeControlMarker(node.id, "player1");
+    }
+    const remaining = board.getLocations().filter((n) => n.isNeutral());
+    expect(remaining.length).toBeGreaterThan(0);
+    const last = remaining[0]!;
+    rawPlace(game, "player1", "infanteria", last.id);
+    const p1 = game.player("player1");
+    giveHand(p1, ["infanteria"]);
+    const result = game.executeManeuver("player1", {
+      kind: "ability",
+      unitType: "infanteria",
+      params: { ability: "footman", maneuvers: [{ kind: "control", unitPos: last.id }] },
+    });
+    expect(result.success).toBe(true);
+    expect(game.winner).toBe("player1");
+    expect(game.phase).toBe("finished");
+  });
+});
+
 describe("Mariscal", () => {
   test("ordena atacar a una unidad aliada a 1-2 (no a Arquero/Lancero)", async () => {
     const { game } = await newGame(["mariscal", "caballeria"], ["caballeria-ligera"]);
@@ -250,7 +353,7 @@ describe("Guardia Real", () => {
     const guard = rawPlace(game, "player1", "guardia-real", base);
 
     // Controlar una base neutral a distancia ≤2 de la Guardia Real.
-    const destination = board.getLocations().find((n) => n.isNeutral() && distanceInHexes(game.board, base, n.id) <= 2)!;
+    const destination = board.getLocations().find((n) => n.isNeutral() && distanceInHexes(game.board, base, n.id) <= 2);
     if (destination === undefined) throw new Error("Sin localización neutral cercana");
     game.board.placeControlMarker(destination.id, "player1");
     giveHand(p1, [], 1);
@@ -326,7 +429,7 @@ describe("Caballería ligera y Caballería", () => {
     expect(p1.hand.countUnit("caballeria")).toBe(1); // no gastó la moneda
   });
 
-  test("la caballería no rebiste a un Caballero sin estar reforzada (no mueve ni gasta)", async () => {
+  test("la caballería no embiste a un Caballero sin estar reforzada (no mueve ni gasta)", async () => {
     const { game } = await newGame(["caballeria"], ["caballero"]);
     const p1 = game.player("player1");
     const base = freeControlledLocation(game, "player1");

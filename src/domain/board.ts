@@ -83,9 +83,12 @@ export class BoardNode {
   /**
    * Coloca una ficha de dominio del jugador. Si la localización ya estaba
    * controlada por otro, devuelve a ese jugador su ficha (conquista) y pone
-   * la nueva.
+   * la nueva. Solo las bases (localizaciones) pueden recibir fichas.
    */
   addControlMarker(playerId: PlayerId): PlayerId | undefined {
+    if (!this.isLocation()) {
+      throw new Error(`La casilla ${this.id} no es una localización (solo las bases reciben fichas de dominio).`);
+    }
     const previous = this.controlMarker;
     this.controlMarker = playerId;
     return previous;

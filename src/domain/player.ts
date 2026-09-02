@@ -55,6 +55,9 @@ export class Player {
    * realmente robadas (pueden ser menos si no hay suficientes).
    */
   drawCoins(count: number, random: RandomSource = Math.random): number {
+    if (!Number.isInteger(count) || count < 0) {
+      throw new Error(`drawCoins exige una cantidad entera no negativa; se recibió ${count}.`);
+    }
     let drawn = 0;
     while (drawn < count) {
       const result = this.bag.draw(count - drawn, random);

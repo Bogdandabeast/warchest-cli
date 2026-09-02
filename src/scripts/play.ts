@@ -24,7 +24,7 @@ import { createInterface } from "node:readline";
 import { stdin, stdout } from "node:process";
 import type { Interface } from "node:readline";
 import { SVGBoardLoader } from "../infrastructure/svg-board-loader.ts";
-import { runDraft } from "./setup-draft.ts";
+import { prompt, runDraft } from "./setup-draft.ts";
 import { configureGame } from "../domain/game-setup.ts";
 import { Game } from "../domain/game.ts";
 import type { DiscardChoice, FreeManeuverRequest, GameResult } from "../domain/game.ts";
@@ -39,13 +39,6 @@ import { ACTIVATABLE_TACTICS } from "../domain/abilities.ts";
 import type { AbilityRequest, FootmanManeuver } from "../domain/abilities.ts";
 import { distanceInHexes, hexesInStraightLine, reachableWithin } from "../domain/geometry.ts";
 import type { PlayerId, Position } from "../domain/types.ts";
-
-/** Lee una línea del usuario (callback API: funciona en TTY y con pipes). */
-function prompt(rl: Interface, question: string): Promise<string> {
-  return new Promise((resolve) => {
-    rl.question(question, (answer) => resolve(answer.trim()));
-  });
-}
 
 /** ¿Sí/no? (acepta s/si/y/yes y n/no). */
 async function yesNo(rl: Interface, question: string): Promise<boolean> {
@@ -271,9 +264,12 @@ async function askAbility(rl: Interface, game: Game, playerId: PlayerId, unit: U
       return { ability: "archer", target: target.position };
     }
     case "ballestero": {
+      // Solo enemigos en línea recta a 1-2 (igual que valida el motor).
       const candidates = enemyUnits(game, playerId).filter((u) => {
         const d = distanceInHexes(board, unit.position, u.position);
-        return d >= 1 && d <= 2;
+        if (d < 1 || d > 2) return false;
+        const between = hexesInStraightLine(board, unit.position, u.position);
+        return between.length === d - 1;
       });
       const target = await pickFromList(rl, "Blanco del Ballestero (en línea recta a 1-2)", candidates, (u) => `${UNIT_NAMES[u.type]} en ${u.position}`);
       if (target === undefined) return undefined;
@@ -435,8 +431,10 @@ function buildOptions(rl: Interface, game: Game, playerId: PlayerId): MenuOption
     });
   }
 
-  // 3. Mover — unidades con algún vecino libre.
-  const movable = units.filter((u) => game.board.getNeighbors(u.position).some((p) => game.board.unitAt(p) === undefined));
+  // 3. Mover — unidades con algún vecino libre y su moneda de maniobra en mano.
+  const movable = units.filter(
+    (u) => player.hand.hasUnit(u.type) && game.board.getNeighbors(u.position).some((p) => game.board.unitAt(p) === undefined),
+  );
   if (movable.length > 0) {
     options.push({
       label: "Mover",
@@ -450,8 +448,11 @@ function buildOptions(rl: Interface, game: Game, playerId: PlayerId): MenuOption
     });
   }
 
-  // 4. Atacar — unidades sin restricción (X) con enemigo adyacente.
-  const attackers = units.filter((u) => !attackOnlyByAbility(u.type) && adjacentEnemies(game, playerId, u.position).length > 0);
+  // 4. Atacar — unidades sin restricción (X), con enemigo adyacente y su
+  //    moneda de maniobra en la mano.
+  const attackers = units.filter(
+    (u) => !attackOnlyByAbility(u.type) && player.hand.hasUnit(u.type) && adjacentEnemies(game, playerId, u.position).length > 0,
+  );
   if (attackers.length > 0) {
     options.push({
       label: "Atacar",
@@ -471,10 +472,11 @@ function buildOptions(rl: Interface, game: Game, playerId: PlayerId): MenuOption
     });
   }
 
-  // 5. Dominar — unidades en una localización que no controlan.
+  // 5. Dominar — unidades en una localización que no controlan y con su
+  //    moneda de maniobra en la mano.
   const controllers = units.filter((u) => {
     const node = game.board.getNode(u.position);
-    return node !== undefined && node.isLocation() && !node.isControlledBy(playerId);
+    return node !== undefined && node.isLocation() && !node.isControlledBy(playerId) && player.hand.hasUnit(u.type);
   });
   if (controllers.length > 0) {
     options.push({
@@ -492,8 +494,11 @@ function buildOptions(rl: Interface, game: Game, playerId: PlayerId): MenuOption
     });
   }
 
-  // 6. Usar habilidad — unidades con táctica activable.
-  const tacticians = units.filter((u) => ACTIVATABLE_TACTICS.has(u.type));
+  // 6. Usar habilidad — unidades con táctica activable Y la moneda que la
+  //    paga en la mano (la Guardia Real paga con la moneda real).
+  const tacticians = units.filter(
+    (u) => ACTIVATABLE_TACTICS.has(u.type) && (u.type === "guardia-real" ? player.hand.hasRoyal() : player.hand.hasUnit(u.type)),
+  );
   if (tacticians.length > 0) {
     options.push({
       label: "Usar habilidad (táctica)",

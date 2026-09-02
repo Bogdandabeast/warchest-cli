@@ -45,6 +45,15 @@ describe("Player", () => {
     expect(player.drawCoins(3, () => 0)).toBe(1);
   });
 
+  test("drawCoins rechaza cantidades negativas o fraccionarias sin tocar colecciones", () => {
+    const player = makePlayer();
+    player.bag.addUnit("arquero", 2);
+    expect(() => player.drawCoins(-1)).toThrow(/entera no negativa/);
+    expect(() => player.drawCoins(1.5)).toThrow(/entera no negativa/);
+    expect(player.hand.total()).toBe(0);
+    expect(player.bag.total()).toBe(2);
+  });
+
   test("discardHand descarta todas las monedas de la mano", () => {
     const player = makePlayer();
     player.hand.addUnit("arquero", 2);

@@ -97,6 +97,20 @@ export class DraftSession {
     return count;
   }
 
+  /**
+   * Progreso dentro del lote actual (p. ej. carta 1 de 2): la UI muestra qué
+   * elección va dentro del turno del jugador, no solo el total.
+   */
+  get currentLot(): { total: number; picked: number } {
+    if (this.currentPlayer === undefined) return { total: 0, picked: 0 };
+    const player = this.currentPlayer;
+    let start = this.step;
+    while (start > 0 && DRAFT_PICK_SEQUENCE[start - 1] === player) start--;
+    let end = start;
+    while (end < DRAFT_PICK_SEQUENCE.length && DRAFT_PICK_SEQUENCE[end] === player) end++;
+    return { total: end - start, picked: this.step - start };
+  }
+
   /** ¿Terminó el draft (4 unidades por jugador)? */
   get isComplete(): boolean {
     return this.step >= DRAFT_PICK_SEQUENCE.length;
@@ -153,6 +167,15 @@ export function configureGame(board: Board, chosen: Readonly<Record<PlayerId, re
   const player1 = new Player("player1", chosen.player1 as UnitType[]);
   const player2 = new Player("player2", chosen.player2 as UnitType[]);
 
+  // Validar TODOS los requisitos del tablero ANTES de mutar nada: si un
+  // jugador no tiene sus 2 bases, se lanza sin haber colocado fichas.
+  for (const player of [player1, player2]) {
+    const starts = board.getStartLocations(player.id);
+    if (starts.length !== 2) {
+      throw new Error(`El jugador ${player.id} debe tener 2 bases de inicio; tiene ${starts.length}.`);
+    }
+  }
+
   for (const player of [player1, player2]) {
     fillInitialCollections(player);
     placeInitialControlMarkers(board, player);
@@ -177,13 +200,9 @@ function fillInitialCollections(player: Player): void {
   player.bag.add(new RoyalCoin());
 }
 
-/** Coloca una ficha de dominio en cada base de inicio del jugador (2 fichas). */
+/** Coloca una ficha de dominio en cada base de inicio del jugador (ya validadas). */
 function placeInitialControlMarkers(board: Board, player: Player): void {
-  const starts = board.getStartLocations(player.id);
-  if (starts.length !== 2) {
-    throw new Error(`El jugador ${player.id} debe tener 2 bases de inicio; tiene ${starts.length}.`);
-  }
-  for (const position of starts) {
+  for (const position of board.getStartLocations(player.id)) {
     board.placeControlMarker(position, player.id);
   }
 }

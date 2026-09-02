@@ -27,12 +27,12 @@ import { UNIT_NAMES } from "./units.ts";
 import { attackOnlyByAbility } from "./units.ts";
 import { Unit } from "./unit.ts";
 import type { Player } from "./player.ts";
-import { distanceInHexes, hexesInStraightLine } from "./geometry.ts";
+import { distanceInHexes } from "./geometry.ts";
 import { discardsRoyalCoin, resolveAbility } from "./abilities.ts";
 import type { AbilityRequest } from "./abilities.ts";
 
 /** Resultado de una acción (spec §3.4) con eventos extra opcionales. */
-export type GameEventType = "free-maneuver" | "unit-destroyed" | "victory" | "drawn" | "coin-spent";
+export type GameEventType = "free-maneuver" | "unit-destroyed" | "coin-lost" | "victory" | "drawn" | "coin-spent";
 
 export interface GameEvent {
   type: GameEventType;
@@ -209,14 +209,20 @@ export class Game {
    * concesión solo si tiene éxito; si falla, queda pendiente para reintentar.
    */
   executeFreeManeuver(playerId: PlayerId, maneuver: FreeManeuverRequest): GameResult {
-    const grant = this.freeManeuvers.find((fm) => fm.player === playerId && fm.unit.type === maneuver.unitType);
+    // Si la petición precisa la posición, se busca la concesión de la unidad
+    // en esa casilla (dos unidades del mismo tipo podrían tener concesiones).
+    const candidates = this.freeManeuvers.filter((fm) => fm.player === playerId && fm.unit.type === maneuver.unitType);
+    const grant =
+      maneuver.unitPos !== undefined
+        ? candidates.find((fm) => fm.unit.position === maneuver.unitPos) ?? candidates[0]
+        : candidates[0];
     if (grant === undefined) {
       return err("No tienes una maniobra gratis pendiente para esa unidad.");
     }
 
     // Restricciones por tipo de concesión.
     if (grant.kind === "move" && maneuver.kind !== "move") {
-      return err("Esta atributo solo concede un movimiento gratis.");
+      return err("Este atributo solo concede un movimiento gratis.");
     }
 
     // Re-localizar la unidad (el flujo de turnos puede haberla movido).
@@ -240,13 +246,24 @@ export class Game {
         // que retira un ataque. Si la unidad cae en la maniobra, la cadena
         // termina. La concesión NO se consume: queda para encadenar más.
         if (this.board.getAllUnits().includes(unit)) {
-          unit.removeCoin();
+          const survived = unit.removeCoin();
           result.events.push({
             type: "coin-spent",
             unit,
             player: playerId,
             message: `El Guerrero paga una moneda de su pila (pila de ${unit.coins}).`,
           });
+          if (!survived) {
+            // Igual que en un ataque: si paga su última moneda, se retira.
+            this.board.removeUnit(unit);
+            this.pruneFreeManeuvers(unit);
+            result.events.push({
+              type: "unit-destroyed",
+              unit,
+              player: playerId,
+              message: "El Guerrero se deshace al pagar su última moneda.",
+            });
+          }
         } else {
           this.freeManeuvers.splice(this.freeManeuvers.indexOf(grant), 1);
         }
@@ -446,7 +463,7 @@ export class Game {
         });
       } else {
         events.push({
-          type: "unit-destroyed",
+          type: "coin-lost",
           unit: target,
           player: target.owner,
           message: `${UNIT_NAMES[target.type]} pierde una moneda (pila de ${target.coins}).`,
@@ -471,7 +488,7 @@ export class Game {
         });
       } else {
         events.push({
-          type: "unit-destroyed",
+          type: "coin-lost",
           unit: attacker,
           player: attacker.owner,
           message: `${UNIT_NAMES[attacker.type]} pierde una moneda por el Piquero.`,
@@ -480,8 +497,10 @@ export class Game {
     }
 
     // Espadachín (I): puede moverse tras atacar (maniobra gratis, sin moneda).
-    // Solo si el Espadachín sigue en el tablero tras el ataque.
-    if (attacker.type === "espadachin" && this.board.getAllUnits().includes(attacker)) {
+    // Solo si el Espadachín sigue en el tablero tras el ataque y no tiene ya
+    // una concesión de movimiento pendiente (no se duplican).
+    const hasMoveGrant = this.freeManeuvers.some((fm) => fm.unit === attacker && fm.kind === "move");
+    if (attacker.type === "espadachin" && this.board.getAllUnits().includes(attacker) && !hasMoveGrant) {
       this.grantFreeManeuver(attacker.owner, attacker, "move", "El Espadachín puede moverse tras atacar.");
       events.push({
         type: "free-maneuver",
@@ -507,15 +526,26 @@ export class Game {
 
   /** Dominar: la unidad coloca una ficha en la localización que ocupa. */
   private controlAction(playerId: PlayerId, unit: Unit): GameResult {
-    const node = this.board.getNode(unit.position);
-    if (node === undefined || !node.isLocation()) {
+    return this.controlLocation(playerId, unit.position, unit);
+  }
+
+  /**
+   * Dominar una localización concreta: valida, coloca la ficha (devolviendo
+   * la enemiga si conquista), comprueba la victoria y aplica el robo del
+   * Clérigo. Lo usan la acción Dominar y la táctica de la Infantería, para
+   * que ambas pasen por la misma detección de victoria.
+   */
+  controlLocation(playerId: PlayerId, position: Position, actor?: Unit): GameResult {
+    const node = this.board.getNode(position);
+    if (node === undefined) return err(`La casilla ${position} no existe.`);
+    if (!node.isLocation()) {
       return err("Para dominar, la unidad debe estar en una localización (una base).");
     }
     if (node.isControlledBy(playerId)) return err("Ya controlas esta localización.");
 
     const events: GameEvent[] = [];
-    const previous = this.board.placeControlMarker(unit.position, playerId);
-    let message = `Dominas ${unit.position}.`;
+    const previous = this.board.placeControlMarker(position, playerId);
+    let message = `Dominas ${position}.`;
     if (previous !== undefined && previous !== playerId) {
       message += ` Ficha de ${this.players[previous].factionName} devuelta.`;
     }
@@ -531,7 +561,7 @@ export class Game {
     }
 
     // Clérigo (I): tras dominar con éxito roba 1 moneda de su bolsa.
-    if (unit.type === "clerigo") {
+    if (actor?.type === "clerigo") {
       this.drawForClerigo(playerId, events);
     }
 
@@ -684,24 +714,4 @@ export class Game {
       });
   }
 
-  /**
-   * Ataque de habilidad con rango fijo: Arquero (2, la intermedia puede estar
-   * ocupada) y Ballestero (2 en línea recta con la intermedia libre).
-   * Deprecado en favor de las tácticas en `abilities.ts`; se mantiene para
-   * las habilidades que atacan a distancia sin táctica propia.
-   */
-  abilityAttack(playerId: PlayerId, attacker: Unit, targetPos: Position, straightOnly = false): GameResult {
-    const target = this.board.unitAt(targetPos);
-    if (target === undefined) return err("No hay una unidad en esa casilla.");
-    if (target.owner === playerId) return err("No puedes atacar a tu propia unidad.");
-    const distance = distanceInHexes(this.board, attacker.position, targetPos);
-    if (distance !== 2) return err("Esta habilidad ataca a exactamente 2 casillas.");
-    if (straightOnly) {
-      const between = hexesInStraightLine(this.board, attacker.position, targetPos);
-      if (between.length === 0) return err("El ataque debe ser en línea recta.");
-      const blocked = between.some((p) => this.board.unitAt(p) !== undefined);
-      if (blocked) return err("La casilla entre ambas debe estar libre.");
-    }
-    return this.resolveAttack(playerId, attacker, target, false);
-  }
 }

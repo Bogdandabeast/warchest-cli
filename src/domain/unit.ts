@@ -20,46 +20,65 @@ export interface UnitOptions {
   position: Position;
 }
 
+/** Valida que una cantidad de monedas sea un entero positivo. */
+function assertPositiveInteger(value: number, what: string): void {
+  if (!Number.isInteger(value) || value < 1) {
+    throw new Error(`${what} debe ser un entero positivo; se recibió ${value}.`);
+  }
+}
+
 export class Unit {
+  private static nextInstanceId = 0;
+
   readonly type: UnitType;
   readonly owner: PlayerId;
+  readonly instanceId: number;
   position: Position;
-  /** Monedas de la pila (vida de la unidad). */
-  coins: number;
+  /** Pila de monedas (vida de la unidad), solo modificable vía métodos. */
+  private _coins: number;
 
   constructor(options: UnitOptions, coins: number = INITIAL_STACK) {
+    assertPositiveInteger(coins, "La pila de una unidad");
     this.type = options.type;
     this.owner = options.owner;
+    this.instanceId = ++Unit.nextInstanceId;
     this.position = options.position;
-    this.coins = coins;
+    this._coins = coins;
   }
 
   /**
-   * Id estable por tipo y dueño: solo puede haber una unidad de cada tipo por
-   * jugador en el tablero (salvo la Infantería, que gestiona sus dos unidades
-   * con un sufijo propio).
+   * Id estable por instancia (dueño + tipo + instancia): las dos unidades de
+   * Infantería del mismo jugador tienen ids distintos. No deriva de la
+   * posición porque esta cambia al moverse.
    */
   get id(): string {
-    return `${this.owner}:${this.type}`;
+    return `${this.owner}:${this.type}#${this.instanceId}`;
   }
 
-  /** Refuerza la pila: añade una moneda encima. */
+  /** Monedas de la pila (lectura). */
+  get coins(): number {
+    return this._coins;
+  }
+
+  /** Refuerza la pila: añade una moneda encima (cantidad entera positiva). */
   addCoin(count = 1): void {
-    this.coins += count;
+    assertPositiveInteger(count, "El refuerzo");
+    this._coins += count;
   }
 
   /**
    * Retira una moneda de la pila (la de arriba, tras un ataque). Devuelve
    * `false` si la pila quedó vacía (la unidad debe eliminarse del tablero);
-   * la moneda retirada sale del juego.
+   * la moneda retirada sale del juego. Una pila vacía no se decrementa.
    */
   removeCoin(): boolean {
-    this.coins -= 1;
-    return this.coins > 0;
+    if (this._coins <= 0) return false;
+    this._coins -= 1;
+    return this._coins > 0;
   }
 
   /** ¿Está reforzada (2+ monedas en la pila)? */
   isReinforced(): boolean {
-    return this.coins > INITIAL_STACK;
+    return this._coins > INITIAL_STACK;
   }
 }

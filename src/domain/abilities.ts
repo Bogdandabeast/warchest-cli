@@ -65,8 +65,30 @@ export function discardsRoyalCoin(request: AbilityRequest): boolean {
   return request.ability === "royal-guard";
 }
 
-/** Resuelve la táctica de la unidad (ya validada la moneda por `executeManeuver`). */
+/** Nombre de táctica → tipo de unidad que la posee (valida el dispatch). */
+const ABILITY_UNIT: Readonly<Record<string, UnitType>> = {
+  ensign: "alferez",
+  archer: "arquero",
+  crossbowman: "ballestero",
+  cavalry: "caballeria",
+  "light-cavalry": "caballeria-ligera",
+  "royal-guard": "guardia-real",
+  footman: "infanteria",
+  lancer: "lancero",
+  marshal: "mariscal",
+};
+
+/**
+ * Resuelve la táctica de la unidad (ya validada la moneda por
+ * `executeManeuver`). Antes de despachar valida que el tipo de la unidad
+ * coincida con la táctica pedida: un desajuste se rechaza sin ejecutar nada.
+ */
 export function resolveAbility(game: Game, playerId: PlayerId, unit: Unit, params: AbilityRequest): GameResult {
+  const expected = ABILITY_UNIT[params.ability];
+  if (expected === undefined) return errResult(`Táctica desconocida: ${params.ability}.`);
+  if (unit.type !== expected) {
+    return errResult(`${UNIT_NAMES[unit.type]} no tiene la táctica ${params.ability}.`);
+  }
   const name = params.ability;
   switch (name) {
     case "ensign":
@@ -138,10 +160,17 @@ function crossbowmanTactic(game: Game, playerId: PlayerId, unit: Unit, params: E
   if (between.length !== range - 1) return errResult("El ataque debe ser en línea recta.");
 
   // Primera unidad del camino: si la intermedia está ocupada por un enemigo,
-  // el Ballestero ataca a ESA unidad y no a la de detrás.
+  // el Ballestero ataca a ESA unidad y no a la de detrás. Si la primera del
+  // camino es aliada, el tiro se rechaza (no se dispara a través de aliados).
   const blocked = between.find((p) => game.board.unitAt(p) !== undefined);
-  const target = blocked !== undefined ? game.board.unitAt(blocked)! : requested;
-  return game.resolveAttack(playerId, unit, target, false);
+  if (blocked !== undefined) {
+    const blocker = game.board.unitAt(blocked)!;
+    if (blocker.owner === playerId) {
+      return errResult("La primera unidad del camino es aliada: el Ballestero no puede disparar a través de ella.");
+    }
+    return game.resolveAttack(playerId, unit, blocker, false);
+  }
+  return game.resolveAttack(playerId, unit, requested, false);
 }
 
 /**
@@ -178,6 +207,8 @@ function cavalryTactic(game: Game, playerId: PlayerId, unit: Unit, params: Extra
 /** Caballería ligera: se mueve hasta 2 casillas (por casillas vacías). */
 function lightCavalryTactic(game: Game, unit: Unit, params: Extract<AbilityRequest, { ability: "light-cavalry" }>): GameResult {
   if (game.board.areAdjacent(unit.position, params.to)) {
+    // El atajo de 1 casilla también exige destino libre (igual que el de 2).
+    if (game.board.unitAt(params.to) !== undefined) return errResult("La casilla de destino está ocupada.");
     game.board.moveUnit(unit, params.to);
     return okResult(`Caballería ligera se mueve a ${params.to}.`);
   }
@@ -204,7 +235,11 @@ function royalGuardTactic(game: Game, playerId: PlayerId, unit: Unit, params: Ex
   return okResult(`Guardia Real se mueve a ${params.to}.`);
 }
 
-/** Infantería: realiza 1 maniobra con cada unidad de Infantería del tablero. */
+/**
+ * Infantería: realiza 1 maniobra con cada unidad de Infantería del tablero.
+ * La táctica es ATÓMICA: todas las maniobras se validan antes de ejecutar
+ * ninguna, así un fallo deja el estado intacto y no se gasta la moneda.
+ */
 function footmanTactic(game: Game, playerId: PlayerId, unit: Unit, params: Extract<AbilityRequest, { ability: "footman" }>): GameResult {
   const footmen = game.board.getUnitsByPlayer(playerId).filter((u) => u.type === "infanteria");
   if (footmen.length === 0) return errResult("No tienes Infantería en el tablero.");
@@ -212,40 +247,69 @@ function footmanTactic(game: Game, playerId: PlayerId, unit: Unit, params: Extra
   const requests = params.maneuvers;
   if (requests.length === 0) return errResult("Indica qué maniobra hace cada Infantería.");
 
-  const events: GameEvent[] = [];
+  const prepared: { footman: Unit; request: FootmanManeuver }[] = [];
+  const seen = new Set<Position>();
   for (const request of requests) {
     const footman = footmen.find((u) => u.position === request.unitPos);
     if (footman === undefined) return errResult("Una de las maniobras no referencia a una Infantería en el tablero.");
+    if (seen.has(request.unitPos)) return errResult("Cada Infantería solo puede hacer una maniobra en esta táctica.");
+    seen.add(request.unitPos);
 
+    const validation = validateFootmanManeuver(game, playerId, footman, request);
+    if (!validation.success) return validation;
+    prepared.push({ footman, request });
+  }
+
+  const events: GameEvent[] = [];
+  for (const { footman, request } of prepared) {
+    // Ya validado: la aplicación no puede fallar (solo resuelve el ataque).
     const result = applyFootmanManeuver(game, playerId, footman, request);
-    if (!result.success) return result;
     events.push(...result.events);
   }
   return { success: true, message: "Infantería completa sus maniobras.", events };
 }
 
-function applyFootmanManeuver(game: Game, playerId: PlayerId, footman: Unit, maneuver: FootmanManeuver): GameResult {
+/** Valida una maniobra de Infantería SIN tocar el estado (táctica atómica). */
+function validateFootmanManeuver(game: Game, playerId: PlayerId, footman: Unit, maneuver: FootmanManeuver): GameResult {
   switch (maneuver.kind) {
     case "move": {
       if (!game.board.areAdjacent(footman.position, maneuver.to)) return errResult("Maniobra inválida: movimiento no adyacente.");
       if (game.board.unitAt(maneuver.to) !== undefined) return errResult("Maniobra inválida: destino ocupado.");
-      game.board.moveUnit(footman, maneuver.to);
-      return okResult(`Infantería se mueve a ${maneuver.to}.`);
+      return okResult("ok");
     }
     case "attack": {
       const target = game.board.unitAt(maneuver.target);
       if (target === undefined) return errResult("Maniobra inválida: no hay unidad en esa casilla.");
       if (target.owner === playerId) return errResult("Maniobra inválida: no puedes atacar a tu propia unidad.");
       if (!game.board.areAdjacent(footman.position, maneuver.target)) return errResult("Maniobra inválida: el ataque no es adyacente.");
-      return game.resolveAttack(playerId, footman, target, false);
+      if (target.type === "caballero" && !footman.isReinforced()) {
+        return errResult("Maniobra inválida: el Caballero solo puede ser atacado por unidades reforzadas.");
+      }
+      return okResult("ok");
     }
     case "control": {
       const node = game.board.getNode(footman.position);
       if (node === undefined || !node.isLocation()) return errResult("Maniobra inválida: no está en una localización.");
       if (node.isControlledBy(playerId)) return errResult("Maniobra inválida: ya controlas esa localización.");
-      game.board.placeControlMarker(footman.position, playerId);
-      return okResult(`Infantería domina ${footman.position}.`);
+      return okResult("ok");
     }
+  }
+}
+
+/** Ejecuta una maniobra de Infantería ya validada. */
+function applyFootmanManeuver(game: Game, playerId: PlayerId, footman: Unit, maneuver: FootmanManeuver): GameResult {
+  switch (maneuver.kind) {
+    case "move":
+      game.board.moveUnit(footman, maneuver.to);
+      return okResult(`Infantería se mueve a ${maneuver.to}.`);
+    case "attack": {
+      const target = game.board.unitAt(maneuver.target)!;
+      return game.resolveAttack(playerId, footman, target, false);
+    }
+    case "control":
+      // El control centralizado también detecta la victoria al colocar la
+      // última ficha (la maniobra de la Infantería no la saltaba).
+      return game.controlLocation(playerId, footman.position, footman);
   }
 }
 
@@ -286,14 +350,14 @@ function lancerTactic(game: Game, playerId: PlayerId, unit: Unit, params: Extrac
  * Mariscal: una unidad aliada a 1-2 casillas ataca (si puede hacer un ataque
  * normal; no vale para Arquero ni Lancero).
  */
-function marshalTactic(game: Game, playerId: PlayerId, _unit: Unit, params: Extract<AbilityRequest, { ability: "marshal" }>): GameResult {
+function marshalTactic(game: Game, playerId: PlayerId, unit: Unit, params: Extract<AbilityRequest, { ability: "marshal" }>): GameResult {
   const ally = game.board.unitAt(params.ally);
   if (ally === undefined) return errResult("No hay una unidad aliada en esa casilla.");
   if (ally.owner !== playerId) return errResult("La unidad elegida debe ser aliada.");
   if (attackOnlyByAbility(ally.type)) {
     return errResult(`${UNIT_NAMES[ally.type]} no puede hacer un ataque normal (solo con su habilidad); el Mariscal no lo puede ordenar.`);
   }
-  const range = distanceInHexes(game.board, _unit.position, params.ally);
+  const range = distanceInHexes(game.board, unit.position, params.ally);
   if (range < 1 || range > 2) return errResult("La unidad aliada debe estar a 1 o 2 casillas del Mariscal.");
 
   const target = game.board.unitAt(params.attackTarget);

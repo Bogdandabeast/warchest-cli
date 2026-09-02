@@ -54,11 +54,20 @@ export class RoyalCoin extends Coin {
   }
 }
 
+/** Valida el valor de una fuente aleatoria: debe estar en [0, 1). */
+function assertRandomValue(value: number): void {
+  if (!(value >= 0 && value < 1)) {
+    throw new Error("RandomSource debe devolver valores en [0, 1).");
+  }
+}
+
 /** Fisher-Yates sobre un array (utilidad compartida). */
 export function shuffle<T>(items: readonly T[], random: RandomSource = Math.random): T[] {
   const result = items.slice();
   for (let i = result.length - 1; i > 0; i--) {
-    const j = Math.floor(random() * (i + 1));
+    const value = random();
+    assertRandomValue(value);
+    const j = Math.floor(value * (i + 1));
     [result[i], result[j]] = [result[j]!, result[i]!];
   }
   return result;
@@ -159,8 +168,14 @@ export class Bag extends CoinCollection {
     const drawn: Coin[] = [];
     const remaining = this.coins;
     for (let i = 0; i < count && remaining.length > 0; i++) {
-      const index = Math.floor(random() * remaining.length);
-      drawn.push(remaining.splice(index, 1)[0]!);
+      const value = random();
+      assertRandomValue(value);
+      const index = Math.floor(value * remaining.length);
+      const coin = remaining.splice(index, 1)[0];
+      if (coin === undefined) {
+        throw new Error("No se pudo robar una moneda de la bolsa (índice fuera de rango).");
+      }
+      drawn.push(coin);
     }
     return { drawn, complete: drawn.length === count };
   }
@@ -209,9 +224,30 @@ export class DiscardPile extends CoinCollection {
 
 /**
  * Reserva (supply): monedas de tropa fuera de la bolsa que solo entran en
- * juego mediante el reclutamiento. La moneda real nunca está aquí.
+ * juego mediante el reclutamiento. La moneda real nunca está aquí: todas las
+ * vías de inserción la rechazan antes de mutar la colección.
  */
 export class Reserve extends CoinCollection {
+  override add(coin: Coin, count = 1): void {
+    if (coin.isRoyal()) {
+      throw new Error("La moneda real no puede estar en la reserva.");
+    }
+    super.add(coin, count);
+  }
+
+  override addRoyal(): void {
+    throw new Error("La moneda real no puede estar en la reserva.");
+  }
+
+  mergeFrom(collection: CoinCollection): void {
+    const coins = collection.toArray();
+    if (coins.some((coin) => coin.isRoyal())) {
+      throw new Error("La moneda real no puede estar en la reserva.");
+    }
+    for (const coin of coins) super.add(coin);
+    collection.clear();
+  }
+
   /**
    * Recluta una moneda del tipo indicado: la saca de la reserva y la coloca
    * boca arriba en la pila de descarte. Devuelve `false` si no hay monedas
