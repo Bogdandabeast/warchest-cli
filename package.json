@@ -10,27 +10,22 @@
     "@stylistic/eslint-plugin": "^5.10.0",
     "@types/bun": "latest",
     "eslint": "^10.9.1",
+    "globals": "^17.12.0",
     "husky": "^9.1.7",
     "lint-staged": "^17.4.1",
-    "typescript-eslint": "^8.69.0"
-  },
-  "peerDependencies": {
-    "typescript": "6.0.3"
+    "typescript": "^7.0.2"
   },
   "scripts": {
+    "prepare": "husky",
     "dev": "bun run --watch index.ts",
     "start": "bun index.ts",
     "test": "bun test",
     "check": "bun tsc --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "format": "eslint . --fix",
-    "format:check": "eslint .",
-    "check:all": "bun run check && bun run lint && bun test",
-    "prepare": "husky"
+    "check:all": "bun run check && bun run lint && bun test"
   },
   "lint-staged": {
-    "*.{ts,mts,cts}": ["eslint --fix"],
     "*.{js,mjs,cjs}": ["eslint --fix"]
   }
 }

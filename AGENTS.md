@@ -75,9 +75,9 @@
 
 ```bash
 bun install              # instalar dependencias (corre el prepare → husky)
-bun run check            # typecheck (tsc --noEmit, TypeScript 6.0.3)
-bun run lint             # eslint . (código + formato estilo-Prettier)
-bun run lint:fix         # eslint . --fix (== bun run format)
+bun run check            # typecheck (tsc --noEmit, TypeScript 7.0.2)
+bun run lint             # eslint . (SOLO .js/.mjs/.cjs; sin lint de TS)
+bun run lint:fix         # eslint . --fix
 bun test                 # pruebas (bun:test)
 bun run check:all        # typecheck + lint + tests en un comando
 # Scripts de assets (sin alias en package.json, se ejecutan directamente):
@@ -86,6 +86,11 @@ bun run src/scripts/build-terrain-svgs.ts     # regenerar assets/terrain/*.svg
 bun run src/scripts/build-board-from-terrain.ts  # reconstruir assets/board/board-1v1.svg
 bun run src/scripts/render-board-terminal.ts  # render hexágonos en terminal
 ```
+
+> **Nota sobre lint**: typescript-eslint está fuera del toolchain (no soporta
+> TypeScript 7). ESLint solo lintea/formatea `.js/.mjs/.cjs` (config y
+> scripts); los `.ts` se validan con `tsc --noEmit` (tipos) y `bun test`.
+> No reintroducir typescript-eslint ni Prettier sin consultar al usuario.
 
 ## Estado actual y próximos pasos
 
@@ -103,10 +108,12 @@ bun run src/scripts/render-board-terminal.ts  # render hexágonos en terminal
     (`bun run board-terrain`) y render hexágonos en terminal
     (`bun run render`). La clasificación de terrenos vive en
     `src/infrastructure/terrain.ts`.
-  - **Ciclo 1.5 — Tooling (rama `ciclo-1-linting`)**: ESLint como lint +
-    formato (ESLint Stylistic, sin Prettier), Husky v9 (pre-commit con
-    lint-staged + tsc + tests, commit-msg con commitlint conventional
-    commits), scripts `lint`/`format`/`check:all` y TypeScript 6.0.3.
+  - **Ciclo 1.5 — Tooling (rama `ciclo-1-linting`)**: TypeScript 7.0.2
+    (última versión) como compilador, ESLint 10 solo para `.js/.mjs/.cjs`
+    (ESLint Stylistic como formateador estilo-Prettier, **sin Prettier** y
+    **sin typescript-eslint**), Husky v9 (pre-commit con lint-staged +
+    tsc + tests, commit-msg con commitlint conventional commits) y scripts
+    `lint`/`lint:fix`/`check:all`.
 - Siguiente ciclo (ciclo 2): configuración de partida — colecciones de
   monedas (`Bag`, `Hand`, `DiscardPile`, `Reserve`), bolsas iniciales,
   colocación de las 2 fichas de dominio iniciales en las bases (y la

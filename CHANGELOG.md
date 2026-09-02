@@ -2,23 +2,26 @@
 
 ## v0.2.0 — Ciclo 1.5: Herramientas de desarrollo (ESLint, Husky, commitlint)
 
-- **Lint de código + formato con ESLint** (`eslint.config.js`, flat config
-  de ESLint 10): `@eslint/js` recomendado + `typescript-eslint`
-  (recommended + strict + stylistic + recommendedTypeChecked, lints con
-  información de tipos) y **ESLint Stylistic** (`@stylistic/eslint-plugin`)
-  como formateador estilo-Prettier (indent 2, comillas dobles, semi,
-  1tbs, trailing commas, max-len 110). **Prettier fue desinstalado**: una
-  sola herramienta para lint y formato (`bun run lint:fix` / `format`).
+- **TypeScript 7.0.2 (última versión)** como compilador único
+  (`typescript@^7.0.2`): el compilador nativo nuevo (10× más rápido).
+  **typescript-eslint fue retirado** (no soporta TS 7; se descartó también
+  el setup oficial de compatibilidad con la API de TS 6 en paralelo por
+  simplicidad — requiere aliases + postinstall). La validación del `.ts`
+  queda en `tsc --noEmit` (tipos) + `bun test`.
+- **ESLint 10 queda solo para `.js/.mjs/.cjs`** (`eslint.config.js`, flat
+  config): `@eslint/js` recomendado + globals de Node + **ESLint Stylistic**
+  como formateador estilo-Prettier (indent 2, comillas dobles, semi, 1tbs,
+  trailing commas, max-len 110). ESLint no puede parsear TypeScript sin
+  typescript-eslint, así que el lint de TS quedó fuera; **Prettier sigue
+  desinstalado**.
 - **Husky + lint-staged**: hook `pre-commit` que corre `lint-staged`
-  (eslint --fix solo sobre archivos staged) + `bun run check` (tsc) +
-  `bun test`; y hook `commit-msg` que valida el mensaje con **commitlint**
+  (eslint --fix solo sobre `.js/.mjs/.cjs` staged) + `bun run check` (tsc 7)
+  + `bun test`; y hook `commit-msg` que valida el mensaje con **commitlint**
   (conventional commits: `feat:`, `fix:`, `chore:`, …).
-- **Verificaciones TS + tests**: scripts `lint`, `lint:fix`, `format`,
-  `format:check` y `check:all` (typecheck + lint + tests); el hook
-  pre-commit ya las ejecuta en cada commit.
-- **TypeScript actualizado a 6.0.3** (la última versión estable; la 7.0.2
-  no es compatible aún con typescript-eslint, que exige `<6.1.0`). Se
-  registra `types` como `["bun"]` en el tsconfig.
+- **Verificaciones TS + tests**: scripts `lint`, `lint:fix` y `check:all`
+  (typecheck + lint + tests); el hook pre-commit ya las ejecuta en cada
+  commit. Se eliminan los aliases `format`/`format:check` (duplicados de
+  lint) y el postinstall de reparación de layout.
 - El código del repo fue reformateado automáticamente por ESLint Stylistic
   (solo cambios de estilo; sin cambios de comportamiento) — 17 tests verdes.
 
