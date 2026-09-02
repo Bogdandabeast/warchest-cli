@@ -19,6 +19,8 @@ export interface SvgPathElement {
   cy?: number;
   /** Radio exterior del hexágono (`sodipodi:r1`): ~136.9 casilla, ~68 decorativo. */
   r1?: number;
+  /** Apotema del hexágono (`sodipodi:r2`): ~118.6 casilla, ~54 decorativo. */
+  r2?: number;
 }
 
 export const PATH_ELEMENT_RE = /<path\b[\s\S]*?\/>/g;
@@ -32,6 +34,7 @@ export function parseSvgPath(svgPathBlock: string): SvgPathElement {
   const cxMatch = svgPathBlock.match(/sodipodi:cx="([-0-9.]+)"/);
   const cyMatch = svgPathBlock.match(/sodipodi:cy="([-0-9.]+)"/);
   const r1Match = svgPathBlock.match(/sodipodi:r1="([-0-9.]+)"/);
+  const r2Match = svgPathBlock.match(/sodipodi:r2="([-0-9.]+)"/);
   return {
     block: svgPathBlock,
     id: idMatch?.[1],
@@ -40,6 +43,7 @@ export function parseSvgPath(svgPathBlock: string): SvgPathElement {
     cx: cxMatch ? Number.parseFloat(cxMatch[1]!) : undefined,
     cy: cyMatch ? Number.parseFloat(cyMatch[1]!) : undefined,
     r1: r1Match ? Number.parseFloat(r1Match[1]!) : undefined,
+    r2: r2Match ? Number.parseFloat(r2Match[1]!) : undefined,
   };
 }
 

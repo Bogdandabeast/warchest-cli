@@ -28,7 +28,35 @@
   (p. ej. "move from A1 to B2"). El centro del tablero es `D6`.
 - **`Position` es un string opaco** (spec §3.1): igualdad nativa `===`; los
   ids los genera el loader.
+- **Tipos de terreno** (extraídos a `assets/terrain/`): el playmat distingue
+  las bases con un **hexágono pequeño interior** (marcador r1≈68 dibujado
+  dentro de la casilla grande). Clasificación:
+  - *Normales* (movimiento de tropas): hexágono verde sin marcador.
+  - *Bases sin conquistar*: hexágono verde con marcador (A7, B4, C7, E5, F8,
+    G5).
+  - *Bases conquistadas de lobos* (amarillas): C1, F2.
+  - *Bases conquistadas de cuervos* (moradas): B10, E11.
+  La asignación amarillo→lobos y morado→cuervos es asumida (coherente con
+  amarillo→`player1` y morado→`player2` del loader); cambiar en el script
+  `build-terrain-svgs.ts` si el usuario la define distinta.
+- **Un tile por terreno**: cada `assets/terrain/*.svg` contiene **un solo
+  hexágono representativo** del tipo (casilla canónica por coordenada fijada
+  en `SELECTED_CELL`), en vez de todos los del tablero — el arte es un tile
+  reutilizable, no un mapa completo. El viewBox recorta a la casilla más un
+  margen (`PAD_PX=60`) para no cortar trazos ni dibujos.
+- **Íconos de lobo/cuervo dentro de las bases conquistadas**: el tile de base
+  conquistada incluye el grupo de íconos del playmat que el arte ya coloca
+  sobre esa base (amarillo → `g1009`-* lobo, morado → `g944`-* cuervo),
+  traducido junto con la casilla vía el transform del documento. El grupo se
+  elige por cercanía de centro a la casilla (tolerancia < 100 px).
+- **Parseo robusto de grupos de íconos**: los lobos viven *dentro* del layer
+  `layer5` del playmat y los cuervos *fuera*, así que un regex genérico de
+  `<g>…</g>` capturaba el contenedor externo y desbalanceaba el XML. El parser
+  ancla el match al tag de apertura que lleva `id="g…"` (los grupos de íconos
+  solo contienen `<path>`, sin `<g>` anidados) y toma la matriz de ese mismo
+  tag; el resultado son tiles well-formed (validados con `xmllint`).
 - **Fuera de alcance de este ciclo**: marcadores de dominio
   (`controlledBy`/`controlMarkers`), unidades y config de partida. `BoardNode`
   solo modela geometría + base de inicio; el resto llega en ciclos 2–3 según
-  la spec.
+  la spec. La clasificación de terrenos vive hoy en el script de assets; un
+  ciclo posterior podrá llevarla al dominio (`BoardNode.terrain`).

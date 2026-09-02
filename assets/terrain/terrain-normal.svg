@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="394"
+   height="357"
+   viewBox="0 0 394 357">
+  <g
+     id="terrain-normal"
+     style="display:inline"
+     transform="translate(-1603.10806 -871.44811)">
+<path
+       sodipodi:type="star"
+       style="opacity:1;fill:none;fill-opacity:1;stroke:#8fff91;stroke-width:9;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       id="path4540"
+       sodipodi:sides="6"
+       sodipodi:cx="1800"
+       sodipodi:cy="1050"
+       sodipodi:r1="136.89194"
+       sodipodi:r2="118.55189"
+       sodipodi:arg1="-3.1415927"
+       sodipodi:arg2="-2.6179939"
+       inkscape:flatsided="true"
+       inkscape:rounded="0"
+       inkscape:randomized="0"
+       d="m 1663.1081,1050 68.4459,-118.55189 136.892,-1e-5 68.4459,118.5519 -68.4459,118.5519 -136.892,0 z" />
+  </g>
+</svg>
