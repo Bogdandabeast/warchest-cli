@@ -77,16 +77,18 @@
 bun install              # instalar dependencias (corre el prepare → husky)
 bun run start            # dibuja el tablero 1v1 en la terminal (index.ts)
 bun run dev              # igual que start pero con --watch
+bun run setup-draft      # configuración interactiva de partida (draft 1-2-2-2-1)
+bun run play             # partida completa por terminal (hot-seat: draft → rondas → victoria)
 bun run check            # typecheck (tsc --noEmit, TypeScript 7.0.2)
 bun run lint             # eslint . (SOLO .js/.mjs/.cjs; sin lint de TS)
 bun run lint:fix         # eslint . --fix
 bun test                 # pruebas (bun:test)
 bun run check:all        # typecheck + lint + tests en un comando
-# Scripts de assets (sin alias en package.json, se ejecutan directamente):
-bun run src/scripts/build-playmat-1v1.ts      # regenerar warchest_playmat_1v1.svg
-bun run src/scripts/build-terrain-svgs.ts     # regenerar assets/terrain/*.svg
-bun run src/scripts/build-board-from-terrain.ts  # reconstruir assets/board/board-1v1.svg
-bun run src/scripts/render-board-terminal.ts  # render hexágonos en terminal (--playmat, --build)
+# Scripts de assets (alias en package.json):
+bun run board            # regenerar warchest_playmat_1v1.svg
+bun run terrain          # regenerar assets/terrain/*.svg
+bun run board-terrain    # reconstruir assets/board/board-1v1.svg
+bun run render           # render hexágonos en terminal (--playmat, --build)
 ```
 
 > **Nota sobre lint**: typescript-eslint está fuera del toolchain (no soporta
@@ -118,10 +120,58 @@ bun run src/scripts/render-board-terminal.ts  # render hexágonos en terminal (-
     `lint`/`lint:fix`/`check:all`. Además `bun run start` dibuja el tablero:
     `index.ts` llama a `renderBoardTerminal()` (exportada por el renderer,
     que sigue ejecutable como script con `import.meta.main`).
-- Siguiente ciclo (ciclo 2): configuración de partida — colecciones de
-  monedas (`Bag`, `Hand`, `DiscardPile`, `Reserve`), bolsas iniciales,
-  colocación de las 2 fichas de dominio iniciales en las bases (y la
-  clasificación de terrenos podría moverse del script al dominio como
-  `BoardNode.terrain`). Estructura de directorios de la spec:
-  `src/domain/`, `src/infrastructure/`, `src/shared/`, `src/server/`,
-  `src/client/`.
+  - **Ciclo 2 (rama `ciclo-2-configuracion`, EN CURSO)**: configuración de
+    partida completa implementada:
+    - `src/domain/units.ts`: 16 unidades, `UNIT_TOTAL_COINS` (totales reales
+      por tipo), flags X/I (`attackOnlyByAbility`, `hasInnateAbility`).
+    - `src/domain/coins.ts`: jerarquía `Coin` → `UnitCoin`/`RoyalCoin` y
+      colecciones (`CoinCollection`, `Bag`, `Hand`, `DiscardPile`, `Reserve`)
+      sobre objetos `Coin`; la moneda real vive en la bolsa.
+    - `src/domain/terrain.ts`: tipo `Terrain` en dominio + helpers
+      (`isLocationTerrain`, `startZoneOf`); `BoardNode.terrain` sustituye a
+      `startZone`.
+    - `src/domain/board.ts`: `BoardNode` con control de fichas (una por
+      localización, `addControlMarker` reemplaza en la conquista) y `Board`
+      con registro de unidades (`Unit`/pilas en `src/domain/unit.ts`),
+      localizaciones y `countControlMarkers`.
+    - `src/domain/player.ts`: `Player` con colecciones, facción
+      (Lobos/Cuervos) y 6 fichas.
+    - `src/domain/game-setup.ts`: draft 1-2-2-2-1 sobre 8 cartas
+      (`DraftSession`) y `configureGame` (bolsa = real + 2 por tipo, reserva
+      = total − 2, 2 fichas iniciales sobre las bases, iniciativa → player2).
+    - `src/domain/game.ts`: `Game` con las 9 acciones (deploy, bolster,
+      move/attack/control/ability + claimInitiative/recruit/pass), reglas
+      (ataque → moneda a la caja; Caballero solo atacable reforzado; Piquero
+      contraataca; Guardia Real de reserva; Arquero/Lancero X…) y el **flujo
+      de rondas** (spec §3.5/§4.2): `phase` (setup/playing/round-over/
+      finished), `passed`, `startRound` (roba 3 a cada uno), `endRound`,
+      `nextTurn`, `retire` (pase sin descarte con mano vacía) y la cola de
+      **maniobras gratis** (`grantFreeManeuver`/`executeFreeManeuver` +
+      `pruneFreeManeuvers` de concesiones obsoletas). Los cargadores
+      (Caballería/Lancero) prevalidan la regla del Caballero ANTES de mover.
+    - `src/domain/abilities.ts`: tácticas de las 16 unidades (9 activables;
+      atributos (I) integrados): Ballestero ataca a la primera unidad de la
+      línea, Caballería exige objetivo, Clérigo roba tras atacar/dominar
+      (evento `drawn`), Guerrero encadena pagando monedas de su pila (nunca
+      la última, evento `coin-spent`), Espadachín/Mercenario conceden
+      maniobra gratis.
+    - `src/domain/geometry.ts`: distancia BFS, líneas rectas, rangos y
+      `reachableWithin`.
+    - `src/infrastructure/svg-board-loader.ts`: **ya NO usa los playmats** —
+      lee `assets/board/board-1v1.svg` (board compuesto del script), valida
+      conteos 27/6/2/2 y calcula adyacencias.
+    - `src/scripts/setup-draft.ts` (`bun run setup-draft`): draft interactivo
+      por terminal con resumen final.
+    - `src/scripts/play.ts` (`bun run play`): **partida completa hot-seat**
+      por terminal — draft → rondas (robo, alternancia, fin de ronda) → las
+      9 acciones con blancos guiados por listas de opciones válidas →
+      maniobras gratis → victoria. Mapa ASCII del tablero + paneles de mano/
+      reserva/fichas por turno. El Clérigo que roba mantiene el turno.
+    - 91 tests verdes (`bun run check:all`).
+- Siguiente paso: cerrar el ciclo 2 — commit atómico en `ciclo-2-configuracion`
+  (mensaje conventional; hooks Husky/commitlint lo validan) y PR a `main`
+  cuando el usuario lo autorice (nunca push directo). Después, ciclos
+  siguientes de la spec: servidor/cliente y TUI (spec §6-7, estructura
+  `src/shared/`, `src/server/`, `src/client/`), DTOs/`toDTO`, y la parte
+  online (opcional IA). `reglas.md` sigue pendiente de crear desde  la conversación (las reglas confirmadas están en `DECISIONS.md` y los
+  comentarios del código).
