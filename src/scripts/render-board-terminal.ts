@@ -17,7 +17,10 @@
  *                             # terrain.ts). Ejecuta `bun run board-terrain`
  *                             # primero si el board aún no existe.
  *   bun run render --playmat # renderiza el playmat 1v1 original
- *   COLUMNS=140 bun run render   # ancho personalizado (default: ancho del TTY)
+ *
+ * El tablero se ajusta automáticamente al ancho Y alto de la terminal para
+ * que se vea completo en pantalla sin necesidad de scrollear
+ * (COLUMNS/LINES del TTY, o env COLUMNS=… / LINES=… para forzar tamaño).
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -50,11 +53,36 @@ const TABLE_BG: [number, number, number] = [0x16, 0x1a, 0x26];
 const CELL_W = 1;
 const CELL_H = 2;
 
-/** Resolución horizontal del render en celdas de terminal. */
-function desiredColumns(): number {
-  const fromEnv = Number.parseInt(process.env.COLUMNS ?? "", 10);
-  if (Number.isFinite(fromEnv) && fromEnv > 0) return fromEnv;
-  return process.stdout.columns ?? 100;
+/** Líneas de la cabecera (título, fuente, línea en blanco) y del pie (en blanco, leyenda, resumen). */
+const HEADER_LINES = 3;
+const FOOTER_LINES = 3;
+
+/** Dimensiones de la terminal (env COLUMNS/LINES o TTY; defaults 100×30). */
+function terminalSize(): { cols: number; rows: number } {
+  const envCols = Number.parseInt(process.env.COLUMNS ?? "", 10);
+  const envRows = Number.parseInt(process.env.LINES ?? "", 10);
+  return {
+    cols: Number.isFinite(envCols) && envCols > 0 ? envCols : process.stdout.columns ?? 100,
+    rows: Number.isFinite(envRows) && envRows > 0 ? envRows : process.stdout.rows ?? 30,
+  };
+}
+
+/**
+ * Resolución del render (celdas de terminal) que cabe en la pantalla:
+ * el tablero ocupa filas ≈ anchoLógico × (2100/3600) / CELL_H, así que se
+ * limita el ancho para que las filas no excedan las de la terminal menos
+ * cabecera y pie. Devuelve 0 si ni siquiera cabe una celda.
+ */
+function fitToScreen(term: { cols: number; rows: number }): { cols: number; rows: number } {
+  const availableRows = term.rows - HEADER_LINES - FOOTER_LINES;
+  if (availableRows < 4) return { cols: 0, rows: 0 };
+  // Filas(lógico) = ancho × 2100/3600; filas de terminal = lógico / CELL_H.
+  const maxLogicalWidthByHeight = Math.floor((availableRows * CELL_H * 3600) / 2100);
+  const cols = Math.max(1, Math.min(term.cols, maxLogicalWidthByHeight));
+  const logicalWidth = cols * CELL_W;
+  const logicalHeight = Math.round((logicalWidth * 2100) / 3600);
+  const rows = Math.max(1, Math.ceil(logicalHeight / CELL_H));
+  return { cols, rows };
 }
 
 /** Hexágono flat-sided (puntas a los lados) centrado en (cx, cy). */
@@ -126,12 +154,14 @@ function render(sourcePath: string): void {
   const fromTiles = sourcePath === BOARD_TERRAIN;
   const locations = fromTiles ? classifyComposedBoardLocations(svg) : classifyBoardLocations(svg);
 
-  const cols = desiredColumns();
-  // Aspecto del playmat: 3600×2100 → alto = ancho × 2100/3600, y cada carácter
-  // cubre 2 filas lógicas → filas = altoLógico / 2.
+  // Ajustar al tamaño de la terminal: el tablero debe verse completo sin scroll.
+  const { cols, rows } = fitToScreen(terminalSize());
+  if (rows === 0) {
+    console.error("Terminal demasiado pequeña para renderizar el tablero.");
+    process.exit(1);
+  }
   const logicalWidth = cols * CELL_W;
-  const logicalHeight = Math.round((logicalWidth * 2100) / 3600);
-  const rows = Math.ceil(logicalHeight / CELL_H);
+  const logicalHeight = rows * CELL_H;
 
   const scaleX = 3600 / logicalWidth;
   const scaleY = 2100 / logicalHeight;
@@ -139,16 +169,21 @@ function render(sourcePath: string): void {
   // Precomputar hexágonos en espacio de píxel lógico. Se contraen al ~88 %
   // para que el fondo de la mesa quede visible entre casillas (el trazo de
   // 9 px del SVG se pierde a esta escala) y las casillas se distingan.
+  // La geometría (r1/r2) sale de los SVG de los tiles, no de constantes.
   const CELL_SCALE = 0.88;
-  const hexes = locations.map((location) => ({
-    location,
-    vertices: hexagonVertices(
-      location.cx / scaleX,
-      location.cy / scaleY,
-      (136.89194 * CELL_SCALE) / scaleX,
-      (118.55189 * CELL_SCALE) / scaleY,
-    ),
-  }));
+  const hexes = locations.map((location) => {
+    const r1 = location.r1 ?? 136.89194;
+    const r2 = location.r2 ?? 118.55189;
+    return {
+      location,
+      vertices: hexagonVertices(
+        location.cx / scaleX,
+        location.cy / scaleY,
+        (r1 * CELL_SCALE) / scaleX,
+        (r2 * CELL_SCALE) / scaleY,
+      ),
+    };
+  });
 
   const ctx: RenderContext = { scaleX, scaleY, cells: new Map() };
   for (const hex of hexes) {

@@ -36,9 +36,12 @@
 - **Render del tablero en terminal** (`render-board-terminal.ts`,
   `bun run render`): dibuja el tablero como hexágonos de colores (ANSI
   truecolor, medio-bloques ▀) a partir de **`assets/board/board-1v1.svg`**
-  (el board compuesto desde los tiles; se regenera solo si falta). Es el
-  render que reutilizará el cliente TUI (spec §7). Flag `--playmat` para
-  renderizar el playmat original.
+  (el board compuesto desde los tiles; se regenera solo si falta). Usa la
+  geometría (r1/r2) de los propios SVG de los tiles y **se ajusta al ancho y
+  alto de la terminal para que el tablero se vea completo sin scrollear**
+  (resuelve filas máximas = ancho × 2100/3600 / 2). Es el render que
+  reutilizará el cliente TUI (spec §7). Flag `--playmat` para renderizar el
+  playmat original.
 - **Clasificación de terrenos compartida** (`src/infrastructure/terrain.ts`):
   `classifyBoardLocations` (playmat) y `classifyComposedBoardLocations`
   (board compuesto, suma el translate del grupo `cell-*` al centro del path),

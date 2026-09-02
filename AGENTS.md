@@ -67,7 +67,8 @@ bun run board-terrain    # reconstruir assets/board/board-1v1.svg desde los tile
                          # y mostrar el tablero como mapa ASCII en la terminal
 bun run render           # renderizar el tablero en la terminal (hexágonos de
                          # colores) desde assets/board/board-1v1.svg; flag
-                         # --playmat para el playmat original
+                         # --playmat para el playmat original. Se ajusta a
+                         # ancho y alto de la terminal para no scrollear.
 ```
 
 ## Estado actual y próximos pasos

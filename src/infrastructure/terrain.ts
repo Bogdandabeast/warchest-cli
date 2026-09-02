@@ -46,6 +46,10 @@ export interface BoardLocation {
   /** Color de trazo de la casilla (verde/amarillo/morado en minúsculas). */
   stroke: string;
   terrain: TerrainName;
+  /** Radio exterior del hexágono (del SVG del tile/playmat). */
+  r1?: number;
+  /** Apotema del hexágono (del SVG del tile/playmat). */
+  r2?: number;
 }
 
 const distance = (ax: number, ay: number, bx: number, by: number) => Math.hypot(ax - bx, ay - by);
@@ -69,6 +73,9 @@ interface CellWithCenter {
   /** Marcador interior (hexágono pequeño) dentro de este radio; undefined si no hay. */
   markerCx?: number;
   markerCy?: number;
+  /** Radio exterior y apotema del hexágono (para el render). */
+  r1?: number;
+  r2?: number;
 }
 
 /** Asigna ids de rejilla A0–G12 por columna (x) y fila (y) ordenadas. */
@@ -93,6 +100,8 @@ function toLocation(cell: CellWithCenter & { id: string }): BoardLocation {
     cy: cell.cy,
     stroke: cell.stroke,
     terrain: terrainOf(cell.stroke, cell.markerCx !== undefined && cell.markerCy !== undefined),
+    r1: cell.r1,
+    r2: cell.r2,
   };
 }
 
@@ -122,6 +131,8 @@ export function classifyBoardLocations(svg: string): BoardLocation[] {
       stroke: cell.stroke!,
       markerCx: marker?.cx,
       markerCy: marker?.cy,
+      r1: cell.r1,
+      r2: cell.r2,
     };
   });
 
@@ -170,6 +181,8 @@ export function classifyComposedBoardLocations(svg: string): BoardLocation[] {
       stroke: big.stroke!,
       markerCx: markerDist <= MATCH_PX ? (marker?.cx ?? 0) + dx : undefined,
       markerCy: markerDist <= MATCH_PX ? (marker?.cy ?? 0) + dy : undefined,
+      r1: big.r1,
+      r2: big.r2,
     };
     return toLocation(cell);
   });

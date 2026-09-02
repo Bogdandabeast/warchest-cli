@@ -68,8 +68,14 @@
   pierden a escala de terminal), el renderer reconstruye la geometría
   flat-sided de cada casilla y pinta medio-bloques Unicode (▀) con ANSI
   truecolor; las casillas se contraen al 88 % para dejar visible el fondo de
-  la mesa entre ellas. Este mismo módulo será la base del renderizado ASCII
-  del cliente TUI (spec §7).
+  la mesa entre ellas. La geometría (r1/r2) se lee de los SVG de los tiles
+  (via `BoardLocation.r1/r2`) en vez de constantes. Este mismo módulo será
+  la base del renderizado ASCII del cliente TUI (spec §7).
+- **El tablero cabe en pantalla sin scroll**: el render no fija solo el
+  ancho — resuelve el ancho máximo que cumpla `filas ≈ ancho × 2100/3600
+  / 2 ≤ LINES − cabecera − pie`, tomando el mínimo entre el ancho del TTY y
+  el permitido por la altura. Así un render de 60×24 imprime 22 líneas y uno
+  de 140×50 imprime 45, siempre dentro de la terminal.
 - **El renderer usa el board compuesto desde tiles**: la fuente por defecto
   de `bun run render` es `assets/board/board-1v1.svg`, no el playmat — así el
   render refleja exactamente lo que construye `build-board-from-terrain.ts`
