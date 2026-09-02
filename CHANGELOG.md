@@ -38,6 +38,9 @@
   el script `render-board-terminal.ts` (que se mantiene ejecutable en
   directo vía `import.meta.main`). Al arrancar el proyecto se pinta el
   tablero 1v1 en la terminal, igual que antes con `bun run render`.
+- **Config de CodeRabbit**: `tools` (ast-grep, markdownlint) vivía a nivel
+  raíz del YAML, clave inválida en el esquema vigente (validación fallaba);
+  se movió bajo `reviews.tools` (documentado en el propio archivo).
 
 ## v0.1.0 — Ciclo 1: Tablero 1v1 desde SVG
 

@@ -74,11 +74,12 @@ reviews:
       mode: warning
       requirements: "El título del PR debe ser conciso y descriptivo (menos de 60 caracteres)."
 
+  # Herramientas adicionales de análisis (solo activas si hay archivos aplicables).
+  # Nota: viven bajo `reviews` (NO al nivel superior del archivo).
+  tools:
+    ast-grep: {}      # patrones sobre AST en TS/JS
+    markdownlint: {}  # consistencia en docs (CHANGELOG.md, DECISIONS.md, README.md)
+
 # Chat: CodeRabbit responde automáticamente a los mensajes @coderabbitai.
 chat:
   auto_reply: true
-
-# Herramientas adicionales de análisis (solo activas si hay archivos aplicables).
-tools:
-  ast-grep: {}      # patrones sobre AST en TS/JS
-  markdownlint: {}  # consistencia en docs (CHANGELOG.md, DECISIONS.md, README.md)
