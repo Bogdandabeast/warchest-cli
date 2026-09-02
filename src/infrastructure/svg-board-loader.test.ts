@@ -124,7 +124,10 @@ describe("SVGBoardLoader", () => {
       hexagon("p1", 900, 100, "#9696ff"),
       hexagon("p2", 1100, 100, "#9696ff"),
     ].join("\n");
-    await assertLoadRejects(`<svg>\n${svg}\n</svg>`, /Se esperaban 33 casillas verd/);
+    await assertLoadRejects(
+      `<svg>\n${svg}\n</svg>`,
+      /Se esperaban 33 casillas verdes \+ 2 amarillas \+ 2 moradas/,
+    );
   });
 
   test("load() rechaza un playmat con cantidad inválida de bases", async () => {
@@ -137,7 +140,10 @@ describe("SVGBoardLoader", () => {
       hexagon("y1", 100, 900, "#ffff00"),
       hexagon("p1", 300, 900, "#9696ff"),
     ].join("\n");
-    await assertLoadRejects(`<svg>\n${svg}\n</svg>`, /Se esperaban 33 casillas verd/);
+    await assertLoadRejects(
+      `<svg>\n${svg}\n</svg>`,
+      /Se esperaban 33 casillas verdes \+ 2 amarillas \+ 2 moradas/,
+    );
   });
 });
 

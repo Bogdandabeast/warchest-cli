@@ -23,7 +23,7 @@
   commit. Se eliminan los aliases `format`/`format:check` (duplicados de
   lint) y el postinstall de reparación de layout.
 - El código del repo fue reformateado automáticamente por ESLint Stylistic
-  (solo cambios de estilo; sin cambios de comportamiento) — 17 tests verdes.
+  (solo cambios de estilo; sin cambios de comportamiento) — 22 tests verdes.
 - **Correcciones de revisión de código (CodeRabbit)**: el agregado `Board`
   ahora valida la integridad del grafo al construirse (rechaza vecinos
   inexistentes y relaciones no bidireccionales; `areAdjacent` solo refleja
