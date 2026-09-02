@@ -10,12 +10,12 @@
     "typescript": "^5"
   },
   "scripts": {
-    "dev": "bun run --watch src/server/index.ts",
-    "start": "bun src/server/index.ts",
-    "client": "bun src/client/index.ts",
+    "dev": "bun run --watch index.ts",
+    "start": "bun index.ts",
     "test": "bun test",
     "check": "bun tsc --noEmit",
     "board": "bun run src/scripts/build-playmat-1v1.ts",
-    "terrain": "bun run src/scripts/build-terrain-svgs.ts"
+    "terrain": "bun run src/scripts/build-terrain-svgs.ts",
+    "board-terrain": "bun run src/scripts/build-board-from-terrain.ts"
   }
 }

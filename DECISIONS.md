@@ -55,6 +55,14 @@
   ancla el match al tag de apertura que lleva `id="g…"` (los grupos de íconos
   solo contienen `<path>`, sin `<g>` anidados) y toma la matriz de ese mismo
   tag; el resultado son tiles well-formed (validados con `xmllint`).
+- **El tablero se puede reconstruir desde los tiles** (`build-board-from-
+  terrain.ts`): los tiles conservan las **coordenadas absolutas** del playmat,
+  así que colocar un tile en una casilla = envolver su contenido en
+  `<g transform="translate(centroCasilla − centroTile)">`. Se renombran los
+  ids internos por casilla (sufijo `-<id de rejilla>`) para que el SVG
+  compuesto no tenga ids duplicados, y la verificación compara los centros
+  **renderizados** (path + translate del grupo) contra el playmat, no los
+  `sodipodi:cx/cy` crudos del path (que son los del tile).
 - **Fuera de alcance de este ciclo**: marcadores de dominio
   (`controlledBy`/`controlMarkers`), unidades y config de partida. `BoardNode`
   solo modela geometría + base de inicio; el resto llega en ciclos 2–3 según

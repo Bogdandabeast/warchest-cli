@@ -63,6 +63,8 @@ bun run check            # typecheck (tsc --noEmit)
 bun test                 # pruebas (bun:test)
 bun run board            # regenerar warchest_playmat_1v1.svg desde el base
 bun run terrain          # regenerar assets/terrain/*.svg desde el playmat 1v1
+bun run board-terrain    # reconstruir assets/board/board-1v1.svg desde los tiles
+                         # y mostrar el tablero como mapa ASCII en la terminal
 ```
 
 ## Estado actual y próximos pasos

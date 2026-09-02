@@ -27,8 +27,16 @@
   El parser de íconos expone `r2` (radio menor) y extrae los grupos de íconos
   anclando el match al tag que lleva `id="g..."`, para que contenedores
   externos (el layer `layer5` que envuelve a los lobos) no corrompan el XML.
-- **Scripts**: `package.json` con `check`, `test`, `board`, `terrain` y los
-  previstos en la spec §13 (`dev`, `start`, `client`).
+- **Tablero reconstruido desde tiles** (`build-board-from-terrain.ts`,
+  `bun run board-terrain`): compone `assets/board/board-1v1.svg` colocando el
+  tile de cada terreno en las 37 casillas del playmat (coordenadas absolutas
+  de los tiles + translate por casilla), renombra ids para evitar duplicados,
+  verifica que el resultado sea igual al playmat 1v1 (mismas posiciones y
+  colores) e imprime el tablero como mapa ASCII en la terminal.
+- **Scripts**: `package.json` con `check`, `test`, `board`, `terrain`,
+  `board-terrain` y los previstos en la spec §13 adaptados al estado actual
+  del repo (`dev`/`start` apuntan a `index.ts` hasta que existan
+  `src/server/` y `src/client/` en ciclos 6–7).
 - **Pruebas** (`bun:test`): 17 tests — dominio (`BoardNode`/`Board`), loader
   contra los dos playmats (37 casillas, ids de rejilla, bases, adyacencias) y
   helper de parseo. `bun run check` y `bun test` en verde.
