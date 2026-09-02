@@ -84,11 +84,11 @@ export class SVGBoardLoader implements BoardLoader {
 
 function isLocationHexagon(element: SvgPathElement): boolean {
   return (
-    element.isHexagon &&
-    element.stroke !== undefined &&
-    element.cx !== undefined &&
-    element.cy !== undefined &&
-    LOCATION_COLORS.has(element.stroke)
+    element.isHexagon
+    && element.stroke !== undefined
+    && element.cx !== undefined
+    && element.cy !== undefined
+    && LOCATION_COLORS.has(element.stroke)
   );
 }
 
@@ -113,9 +113,9 @@ function assertExpectedBoard(locations: Location[]): void {
   const purples = locations.filter((l) => l.stroke === "#9696ff").length;
   if (greens !== 33 || yellows !== 2 || purples !== 2) {
     throw new Error(
-      `Se esperaban 33 casillas verdes + 2 amarillas + 2 moradas en el tablero 1v1, ` +
-        `pero se obtuvieron ${greens} verdes, ${yellows} amarillas y ${purples} moradas. ` +
-        `¿Es correcto warchest_playmat_1v1.svg?`,
+      `Se esperaban 33 casillas verdes + 2 amarillas + 2 moradas en el tablero 1v1, `
+      + `pero se obtuvieron ${greens} verdes, ${yellows} amarillas y ${purples} moradas. `
+      + `¿Es correcto warchest_playmat_1v1.svg?`,
     );
   }
 }
@@ -133,7 +133,7 @@ function buildGridIds(locations: Location[]): Map<Location, Position> {
   for (const location of locations) {
     const col = columns.indexOf(round1(location.cx));
     const row = rows.indexOf(round1(location.cy));
-    if (col < 0 || row < 0 || col > 6) {
+    if (col < 0 || row < 0 || col > 6 || row > 12) {
       throw new Error(`Casilla fuera de la rejilla A0–G12: (${location.cx}, ${location.cy})`);
     }
     const id = `${String.fromCharCode(65 + col)}${row}`;
@@ -165,7 +165,10 @@ function computeAdjacency(locations: Location[], ids: Map<Location, Position>): 
   const threshold = minDistance * ADJACENCY_EPSILON;
   for (const location of locations) {
     const neighbors = locations
-      .filter((other) => other !== location && Math.hypot(other.cx - location.cx, other.cy - location.cy) <= threshold)
+      .filter(
+        (other) =>
+          other !== location && Math.hypot(other.cx - location.cx, other.cy - location.cy) <= threshold,
+      )
       .map((other) => ids.get(other)!)
       .sort();
     adjacency.set(location, neighbors);

@@ -1,11 +1,39 @@
 import { describe, expect, test } from "bun:test";
-import { resolve } from "node:path";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import type { Board } from "../domain/board.ts";
 import { SVGBoardLoader } from "./svg-board-loader.ts";
 import { parseSvgPathElements } from "./svg-parse.ts";
 
 const svg1v1 = resolve(import.meta.dir, "../../warchest_playmat_1v1.svg");
 const svgBase = resolve(import.meta.dir, "../../warchest_playmat_base.svg");
+
+/** Hexágono mínimo que el parser reconoce (mismos atributos que el playmat). */
+function hexagon(id: string, cx: number, cy: number, stroke: string): string {
+  return [
+    "  <path",
+    '     sodipodi:type="star"',
+    `     style="opacity:1;stroke:${stroke};stroke-width:9"`,
+    `     id="${id}"`,
+    '     sodipodi:sides="6"',
+    `     sodipodi:cx="${cx}"`,
+    `     sodipodi:cy="${cy}"`,
+    '     d="m 0,0 z" />',
+  ].join("\n");
+}
+
+/** Escribe un SVG inválido en un archivo temporal y lo limpia al terminar. */
+async function assertLoadRejects(svg: string, message: RegExp): Promise<void> {
+  const dir = await mkdtemp(join(tmpdir(), "warchest-loader-"));
+  const file = join(dir, "invalid.svg");
+  try {
+    await writeFile(file, svg);
+    await expect(new SVGBoardLoader(file).load()).rejects.toThrow(message);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+}
 
 const ID_RE = /^[A-G](?:1[0-2]|[0-9])$/;
 
@@ -86,6 +114,37 @@ describe("SVGBoardLoader", () => {
       }
     }
   });
+
+  test("load() rechaza un playmat con cantidad inválida de casillas", async () => {
+    const svg = [
+      hexagon("g1", 100, 100, "#8fff91"),
+      hexagon("g2", 300, 100, "#8fff91"),
+      hexagon("y1", 500, 100, "#ffff00"),
+      hexagon("y2", 700, 100, "#ffff00"),
+      hexagon("p1", 900, 100, "#9696ff"),
+      hexagon("p2", 1100, 100, "#9696ff"),
+    ].join("\n");
+    await assertLoadRejects(
+      `<svg>\n${svg}\n</svg>`,
+      /Se esperaban 33 casillas verdes \+ 2 amarillas \+ 2 moradas/,
+    );
+  });
+
+  test("load() rechaza un playmat con cantidad inválida de bases", async () => {
+    const greens = Array.from(
+      { length: 33 },
+      (_, i) => hexagon(`g${i}`, 100 + i * 80, 100, "#8fff91"),
+    );
+    const svg = [
+      ...greens,
+      hexagon("y1", 100, 900, "#ffff00"),
+      hexagon("p1", 300, 900, "#9696ff"),
+    ].join("\n");
+    await assertLoadRejects(
+      `<svg>\n${svg}\n</svg>`,
+      /Se esperaban 33 casillas verdes \+ 2 amarillas \+ 2 moradas/,
+    );
+  });
 });
 
 describe("parseSvgPathElements", () => {
@@ -93,14 +152,14 @@ describe("parseSvgPathElements", () => {
     const svg = [
       "<svg>",
       "  <path",
-      '     sodipodi:type="star"',
-      '     style="opacity:1;stroke:#8fff91;stroke-width:9"',
-      '     id="p1"',
-      '     sodipodi:sides="6"',
-      '     sodipodi:cx="1130.4199"',
-      '     sodipodi:cy="663.41779"',
-      '     d="m 0,0 z" />',
-      '  <path id="p2" style="stroke:#8fffff" d="m 1,1 z" />',
+      "     sodipodi:type=\"star\"",
+      "     style=\"opacity:1;stroke:#8fff91;stroke-width:9\"",
+      "     id=\"p1\"",
+      "     sodipodi:sides=\"6\"",
+      "     sodipodi:cx=\"1130.4199\"",
+      "     sodipodi:cy=\"663.41779\"",
+      "     d=\"m 0,0 z\" />",
+      "  <path id=\"p2\" style=\"stroke:#8fffff\" d=\"m 1,1 z\" />",
       "</svg>",
     ].join("\n");
 

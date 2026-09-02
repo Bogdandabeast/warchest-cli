@@ -86,8 +86,8 @@ function fitToScreen(term: { cols: number; rows: number }): { cols: number; rows
 }
 
 /** Hexágono flat-sided (puntas a los lados) centrado en (cx, cy). */
-function hexagonVertices(cx: number, cy: number, r1: number, r2: number): Array<[number, number]> {
-  const points: Array<[number, number]> = [];
+function hexagonVertices(cx: number, cy: number, r1: number, r2: number): [number, number][] {
+  const points: [number, number][] = [];
   // Los vértices de un flat-sided: ángulos 0°, 60°, 120°, ... en pasos de 60°.
   for (let i = 0; i < 6; i++) {
     const angle = (i * Math.PI) / 3;
@@ -98,12 +98,12 @@ function hexagonVertices(cx: number, cy: number, r1: number, r2: number): Array<
 }
 
 /** ¿El punto está dentro del polígono? (ray casting) */
-function pointInPolygon(x: number, y: number, polygon: Array<[number, number]>): boolean {
+function pointInPolygon(x: number, y: number, polygon: [number, number][]): boolean {
   let inside = false;
   for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
     const [xi, yi] = polygon[i]!;
     const [xj, yj] = polygon[j]!;
-    const intersect = yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
+    const intersect = (yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
     if (intersect) inside = !inside;
   }
   return inside;
@@ -114,7 +114,7 @@ interface RenderContext {
   scaleX: number;
   scaleY: number;
   /** Mapa de píxel lógico (x, y) → terreno, solo donde hay casilla. */
-  cells: Map<string, { location: BoardLocation; vertices: Array<[number, number]> }>;
+  cells: Map<string, { location: BoardLocation; vertices: [number, number][] }>;
 }
 
 /** Convierte un color [r,g,b] a secuencia ANSI truecolor del foreground. */
@@ -239,13 +239,36 @@ function render(sourcePath: string): void {
   console.log(`${fg([0x77, 0x88, 0xaa])}${locations.length} casillas renderizadas${RESET}`);
 }
 
-const usePlaymat = process.argv.includes("--playmat");
-const sourcePath = usePlaymat ? PLAYMAT_1V1 : BOARD_TERRAIN;
-
-// El board compuesto desde tiles de terreno se genera con build-board-from-
-// terrain.ts; si aún no existe (o la flag force-build), se construye primero.
-if (!usePlaymat && (!existsSync(sourcePath) || process.argv.includes("--build"))) {
-  execFileSync("bun", ["run", BOARD_BUILD_SCRIPT], { stdio: "inherit" });
+export interface RenderBoardTerminalOptions {
+  /** Fuente del tablero: board compuesto desde tiles (por defecto) o playmat 1v1. */
+  source?: "tiles" | "playmat";
+  /** Reconstruir el board desde tiles aunque ya exista (equivalente a --build). */
+  forceBuild?: boolean;
 }
 
-render(sourcePath);
+/**
+ * Renderiza el tablero 1v1 en la terminal. Es la función que usa `index.ts`
+ * como punto de entrada (`bun run start`) y la que reutilizará el cliente TUI
+ * (spec §7). Con `source: "tiles"` (por defecto) renderiza el board compuesto
+ * desde los tiles de terreno y lo construye primero si aún no existe.
+ */
+export function renderBoardTerminal(options: RenderBoardTerminalOptions = {}): void {
+  const usePlaymat = options.source === "playmat";
+  const sourcePath = usePlaymat ? PLAYMAT_1V1 : BOARD_TERRAIN;
+
+  // El board compuesto desde tiles de terreno se genera con build-board-from-
+  // terrain.ts; si aún no existe (o forceBuild), se construye primero.
+  if (!usePlaymat && (!existsSync(sourcePath) || options.forceBuild === true)) {
+    execFileSync("bun", ["run", BOARD_BUILD_SCRIPT], { stdio: "inherit" });
+  }
+
+  render(sourcePath);
+}
+
+// Ejecución directa como script: `bun run src/scripts/render-board-terminal.ts`.
+if (import.meta.main) {
+  renderBoardTerminal({
+    source: process.argv.includes("--playmat") ? "playmat" : "tiles",
+    forceBuild: process.argv.includes("--build"),
+  });
+}

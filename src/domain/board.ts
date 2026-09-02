@@ -59,6 +59,19 @@ export class Board {
       }
       this.nodes.set(node.id, node);
     }
+    // Integridad del grafo: cada vecino debe existir y la relación debe ser
+    // bidireccional, para que `areAdjacent` solo refleje conexiones válidas.
+    for (const node of this.nodes.values()) {
+      for (const neighborId of node.neighbors) {
+        const neighbor = this.nodes.get(neighborId);
+        if (neighbor === undefined) {
+          throw new Error(`La casilla ${node.id} referencia un vecino inexistente: ${neighborId}`);
+        }
+        if (!neighbor.neighbors.includes(node.id)) {
+          throw new Error(`Vecindad no bidireccional: ${node.id} → ${neighborId} (falta la relación inversa)`);
+        }
+      }
+    }
   }
 
   get size(): number {

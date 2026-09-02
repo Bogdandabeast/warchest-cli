@@ -79,13 +79,13 @@ interface CellWithCenter {
 }
 
 /** Asigna ids de rejilla A0–G12 por columna (x) y fila (y) ordenadas. */
-function withGridIds<T extends CellWithCenter>(cells: T[]): Array<T & { id: string }> {
+function withGridIds<T extends CellWithCenter>(cells: T[]): (T & { id: string })[] {
   const columns = [...new Set(cells.map((c) => round1(c.cx)))].sort((a, b) => a - b);
   const rows = [...new Set(cells.map((c) => round1(c.cy)))].sort((a, b) => a - b);
   return cells.map((cell) => {
     const col = columns.indexOf(round1(cell.cx));
     const row = rows.indexOf(round1(cell.cy));
-    if (col < 0 || row < 0 || col > 6) {
+    if (col < 0 || row < 0 || col > 6 || row > 12) {
       throw new Error(`Casilla fuera de la rejilla A0–G12: (${cell.cx}, ${cell.cy})`);
     }
     return { ...cell, id: `${String.fromCharCode(65 + col)}${row}` };
@@ -113,7 +113,12 @@ function toLocation(cell: CellWithCenter & { id: string }): BoardLocation {
 export function classifyBoardLocations(svg: string): BoardLocation[] {
   const elements = parseSvgPathElements(svg);
   const cells = elements.filter(
-    (h) => h.isHexagon && h.r1 !== undefined && h.r1 > CELL_RADIUS_THRESHOLD && h.cx !== undefined && h.cy !== undefined,
+    (h) =>
+      h.isHexagon
+      && h.r1 !== undefined
+      && h.r1 > CELL_RADIUS_THRESHOLD
+      && h.cx !== undefined
+      && h.cy !== undefined,
   );
   if (cells.length !== 37) {
     throw new Error(`Se esperaban 37 casillas, hay ${cells.length}.`);
@@ -158,7 +163,12 @@ export function classifyComposedBoardLocations(svg: string): BoardLocation[] {
     const dy = Number.parseFloat(match[3]!);
     const inner = parseSvgPathElements(match[4]!);
     const big = inner.find(
-      (h) => h.isHexagon && h.r1 !== undefined && h.r1 > CELL_RADIUS_THRESHOLD && h.cx !== undefined && h.cy !== undefined,
+      (h) =>
+        h.isHexagon
+        && h.r1 !== undefined
+        && h.r1 > CELL_RADIUS_THRESHOLD
+        && h.cx !== undefined
+        && h.cy !== undefined,
     );
     if (big === undefined) {
       throw new Error(`El grupo cell-${match[1]} no contiene un hexágono grande.`);
@@ -167,10 +177,15 @@ export function classifyComposedBoardLocations(svg: string): BoardLocation[] {
     const cx = big.cx! + dx;
     const cy = big.cy! + dy;
     const marker = inner.find(
-      (h) => h.isHexagon && h.r1 !== undefined && h.r1 <= CELL_RADIUS_THRESHOLD && h.cx !== undefined && h.cy !== undefined,
+      (h) =>
+        h.isHexagon
+        && h.r1 !== undefined
+        && h.r1 <= CELL_RADIUS_THRESHOLD
+        && h.cx !== undefined
+        && h.cy !== undefined,
     );
-    const markerDist =
-      marker === undefined
+    const markerDist
+      = marker === undefined
         ? Infinity
         : distance(marker.cx! + dx, marker.cy! + dy, cx, cy);
 

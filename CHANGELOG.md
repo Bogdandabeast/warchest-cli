@@ -1,5 +1,47 @@
 # Changelog
 
+## v0.2.0 — Ciclo 1.5: Herramientas de desarrollo (ESLint, Husky, commitlint)
+
+- **TypeScript 7.0.2 (última versión)** como compilador único
+  (`typescript@^7.0.2`): el compilador nativo nuevo (10× más rápido).
+  **typescript-eslint fue retirado** (no soporta TS 7; se descartó también
+  el setup oficial de compatibilidad con la API de TS 6 en paralelo por
+  simplicidad — requiere aliases + postinstall). La validación del `.ts`
+  queda en `tsc --noEmit` (tipos) + `bun test`.
+- **ESLint 10 queda solo para `.js/.mjs/.cjs`** (`eslint.config.js`, flat
+  config): `@eslint/js` recomendado + globals de Node + **ESLint Stylistic**
+  como formateador estilo-Prettier (indent 2, comillas dobles, semi, 1tbs,
+  trailing commas, max-len 110). ESLint no puede parsear TypeScript sin
+  typescript-eslint, así que el lint de TS quedó fuera; **Prettier sigue
+  desinstalado**.
+- **Husky + lint-staged**: hook `pre-commit` que corre `lint-staged`
+  (eslint --fix solo sobre `.js/.mjs/.cjs` staged) + `bun run check` (tsc 7)
+  + `bun test`; y hook `commit-msg` que valida el mensaje con **commitlint**
+  (conventional commits: `feat:`, `fix:`, `chore:`, …).
+- **Verificaciones TS + tests**: scripts `lint`, `lint:fix` y `check:all`
+  (typecheck + lint + tests); el hook pre-commit ya las ejecuta en cada
+  commit. Se eliminan los aliases `format`/`format:check` (duplicados de
+  lint) y el postinstall de reparación de layout.
+- El código del repo fue reformateado automáticamente por ESLint Stylistic
+  (solo cambios de estilo; sin cambios de comportamiento) — 22 tests verdes.
+- **Correcciones de revisión de código (CodeRabbit)**: el agregado `Board`
+  ahora valida la integridad del grafo al construirse (rechaza vecinos
+  inexistentes y relaciones no bidireccionales; `areAdjacent` solo refleja
+  conexiones válidas), `SVGBoardLoader.load()` rechaza playmats con
+  cantidades inválidas de casillas o bases (nuevos tests con fixtures
+  mínimos), el límite de filas de la rejilla es A0–G12 (`row > 12` se
+  rechaza, también en `terrain.ts`) y `build-board-from-terrain.ts` valida
+  los conteos 27/6/2/2 **antes** de escribir el SVG (el log de casillas usa
+  los conteos validados, no valores fijos).
+- **`bun run start` dibuja el tablero**: `index.ts` (punto de entrada real de
+  la spec §13) ahora invoca `renderBoardTerminal()` — la misma función que
+  el script `render-board-terminal.ts` (que se mantiene ejecutable en
+  directo vía `import.meta.main`). Al arrancar el proyecto se pinta el
+  tablero 1v1 en la terminal, igual que antes con `bun run render`.
+- **Config de CodeRabbit**: `tools` (ast-grep, markdownlint) vivía a nivel
+  raíz del YAML, clave inválida en el esquema vigente (validación fallaba);
+  se movió bajo `reviews.tools` (documentado en el propio archivo).
+
 ## v0.1.0 — Ciclo 1: Tablero 1v1 desde SVG
 
 - **Dominio** (`src/domain/`):

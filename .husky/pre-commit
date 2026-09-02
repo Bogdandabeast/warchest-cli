@@ -1,0 +1,7 @@
+# Hook pre-commit (Husky v9):
+# 1. lint-staged: eslint --fix solo sobre archivos staged (.js/.mjs/.cjs).
+# 2. Typecheck de TODO el proyecto (bun run check equivale a tsc --noEmit).
+# 3. Tests: la suite completa debe pasar antes de commitear.
+bunx lint-staged
+bun run check
+bun test

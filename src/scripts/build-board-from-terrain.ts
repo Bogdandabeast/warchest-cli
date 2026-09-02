@@ -35,7 +35,7 @@ import {
   TERRAIN_FILE,
   TERRAIN_SYMBOL,
 } from "../infrastructure/terrain.ts";
-import type { BoardLocation, TerrainName } from "../infrastructure/terrain.ts";
+import type { TerrainName } from "../infrastructure/terrain.ts";
 
 const projectRoot = resolve(import.meta.dir, "..", "..");
 const playmatPath = resolve(projectRoot, "warchest_playmat_1v1.svg");
@@ -47,8 +47,6 @@ const outputPath = resolve(outputDir, "board-1v1.svg");
 const CENTER_EPSILON = 0.5;
 /** Las casillas tienen r1 ≈ 136.9; los marcadores interiores r1 ≈ 68. */
 const CELL_RADIUS_THRESHOLD = 100;
-
-type Cell = BoardLocation;
 
 const distance = (ax: number, ay: number, bx: number, by: number) => Math.hypot(ax - bx, ay - by);
 
@@ -63,7 +61,6 @@ interface Tile {
   cx: number;
   cy: number;
 }
-
 
 /** Lee el contenido interno del grupo raíz de un tile (coordenadas absolutas). */
 function loadTile(name: TerrainName): Tile {
@@ -110,6 +107,30 @@ const svgHeader = `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 // ── 1. Clasificar casillas del playmat ────────────────────────────────────────
 const playmat = readFileSync(playmatPath, "utf8");
 const cells = classifyBoardLocations(playmat).sort((a, b) => (a.cy === b.cy ? a.cx - b.cx : a.cy - b.cy));
+
+// Conteos esperados por terreno (ver DECISIONS.md: 27 normales, 6 bases sin
+// conquistar, 2 de lobos y 2 de cuervos).
+const EXPECTED_TERRAIN_COUNTS: Readonly<Record<TerrainName, number>> = {
+  normal: 27,
+  "base-neutral": 6,
+  "base-lobos": 2,
+  "base-cuervos": 2,
+};
+
+const counts = new Map<TerrainName, number>();
+for (const terrain of Object.keys(EXPECTED_TERRAIN_COUNTS) as TerrainName[]) counts.set(terrain, 0);
+for (const cell of cells) counts.set(cell.terrain, (counts.get(cell.terrain) ?? 0) + 1);
+
+// Validar ANTES de escribir el SVG: si algún conteo no coincide, el board
+// compuesto no refleja el tablero real y no debe generarse el archivo.
+for (const [terrain, expected] of Object.entries(EXPECTED_TERRAIN_COUNTS) as [TerrainName, number][]) {
+  const actual = counts.get(terrain);
+  if (actual !== expected) {
+    throw new Error(
+      `Conteo de terreno inválido: ${terrain} = ${actual}, se esperaban ${expected} (el SVG no se escribió).`,
+    );
+  }
+}
 
 // ── 2. Cargar tiles y componer el tablero ────────────────────────────────────
 const tiles = new Map<TerrainName, Tile>(
@@ -167,8 +188,8 @@ for (const cell of cells) {
   }
   if (distance(cell.cx, cell.cy, rendered.cx, rendered.cy) > CENTER_EPSILON) {
     throw new Error(
-      `Casilla ${cell.id} desalineada: playmat (${fmt(cell.cx)}, ${fmt(cell.cy)}) ` +
-        `vs compuesta (${fmt(rendered.cx)}, ${fmt(rendered.cy)}).`,
+      `Casilla ${cell.id} desalineada: playmat (${fmt(cell.cx)}, ${fmt(cell.cy)}) `
+      + `vs compuesta (${fmt(rendered.cx)}, ${fmt(rendered.cy)}).`,
     );
   }
 }
@@ -177,12 +198,11 @@ mkdirSync(outputDir, { recursive: true });
 writeFileSync(outputPath, boardSvg);
 
 // ── 4. Imprimir el tablero en la terminal ────────────────────────────────────
-const counts = new Map<TerrainName, number>();
-for (const terrain of Object.keys(TERRAIN_SYMBOL) as TerrainName[]) counts.set(terrain, 0);
-for (const cell of cells) counts.set(cell.terrain, (counts.get(cell.terrain) ?? 0) + 1);
-
 console.log("Tablero 1v1 compuesto desde assets/terrain/ →", outputPath.replace(projectRoot + "/", ""));
-console.log(`Casillas: ${cells.length} (27 normales · 6 bases sin conquistar · 2 bases de lobos · 2 de cuervos)`);
+console.log(
+  `Casillas: ${cells.length} (${counts.get("normal")} normales · ${counts.get("base-neutral")} `
+  + `bases sin conquistar · ${counts.get("base-lobos")} bases de lobos · ${counts.get("base-cuervos")} de cuervos)`,
+);
 console.log();
 
 const columns = [...new Set(cells.map((c) => round1(c.cx)))].sort((a, b) => a - b);

@@ -1,5 +1,34 @@
 # Decisiones de diseño
 
+## v0.2.0 — Herramientas de desarrollo (2026-09-02)
+
+- **TypeScript 7.0.2 (última versión) como compilador** y **typescript-eslint
+  retirado del toolchain**: la 7 es el compilador nativo nuevo y no trae API
+  JS, así que typescript-eslint (que la necesita) no la soporta aún (peer
+  `<6.1.0`). Se probó el setup oficial de compatibilidad (alias
+  `typescript → @typescript/typescript6` + `@typescript/native` para el bin
+  `tsc` + postinstall para un bug de hoisting de Bun con el shim circular),
+  pero el usuario prefirió simplificar: **quitar typescript-eslint**. Queda
+  `typescript@^7.0.2` como devDependency única, sin aliases ni parches.
+  La calidad del `.ts` se garantiza con `tsc --noEmit` (tipos, TS 7) y
+  `bun test`; no hay lint de TS.
+- **ESLint queda solo para `.js/.mjs/.cjs`** (config del proyecto y scripts):
+  ESLint 10 no tiene parser nativo de TypeScript (ver discusión
+  eslint/eslint#18830) y sin typescript-eslint no puede parsear `.ts`
+  (daría errores de parseo en cada archivo). `eslint .` aplica `@eslint/js`
+  recomendado + globals de Node + **ESLint Stylistic** (`@stylistic/eslint-
+  plugin`, preset `customize` estilo-Prettier: indent 2, comillas dobles,
+  semi, 1tbs, trailing commas, max-len 110). Prettier sigue desinstalado.
+  El formato de los `.ts` queda a cargo del editor/manual (sin linter).
+- **Tsconfig**: se mantiene `"types": ["bun"]` (necesario tanto en TS 6
+  como en TS 7, donde `types` por defecto es `[]`).
+- **commitlint conventional commits**: el repo ya usaba mensajes tipo
+  `feat:…`/`chore:…` de facto; commitlint los hace obligatorios en el hook
+  `commit-msg` (tipos estándar + `header-max-length` 100 + `subject-case`
+  lower-case).
+- **Husky v9 con `bun`**: los hooks usan `bunx lint-staged`/`bunx --no-install
+  commitlint` y `bun run check`/`bun test` (Bun como runtime; sin npm).
+
 ## v0.1.0 — Ciclo 1: Tablero 1v1 desde SVG (2026-09-02)
 
 - **Fuente del tablero**: se carga `warchest_playmat_1v1.svg` (generado en el

@@ -148,8 +148,8 @@ for (const element of elements) {
 
 if (cells.length !== 37 || markersCount !== 10) {
   throw new Error(
-    `Se esperaban 37 casillas y 10 marcadores en el tablero 1v1, ` +
-      `pero hay ${cells.length} casillas y ${markersCount} marcadores.`,
+    `Se esperaban 37 casillas y 10 marcadores en el tablero 1v1, `
+    + `pero hay ${cells.length} casillas y ${markersCount} marcadores.`,
   );
 }
 
@@ -202,7 +202,7 @@ const svgHeader = `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 mkdirSync(outputDir, { recursive: true });
 
 for (const terrain of Object.keys(SELECTED_CELL) as TerrainName[]) {
-  const selected = SELECTED_CELL[terrain]!;
+  const selected = SELECTED_CELL[terrain];
   const cell = cells.filter((c) => distance(c.cx, c.cy, selected.cx, selected.cy) <= MATCH_PX)[0];
   if (cell === undefined) {
     throw new Error(`No se encontró la casilla canónica de ${terrain}.`);
@@ -232,7 +232,7 @@ ${blocks.join("\n")}
   </g>
 </svg>
 `;
-  const file = resolve(outputDir, TERRAIN_FILE[terrain]!);
+  const file = resolve(outputDir, TERRAIN_FILE[terrain]);
   writeFileSync(file, content);
   console.log(`OK: ${TERRAIN_FILE[terrain]} (1 hexágono, ${blocks.length} elementos, viewBox ${Math.round(width)}x${Math.round(height)})`);
 }
