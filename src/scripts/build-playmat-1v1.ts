@@ -25,6 +25,8 @@
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { PATH_ELEMENT_RE, parseSvgPath, parseSvgPathElements } from "../infrastructure/svg-parse.ts";
+import type { SvgPathElement } from "../infrastructure/svg-parse.ts";
 
 const projectRoot = resolve(import.meta.dir, "..", "..");
 const inputPath = resolve(projectRoot, "warchest_playmat_base.svg");
@@ -36,45 +38,20 @@ const REMOVE_STROKES = new Set(["#8fffff", "#6432ff", "#ff9600"]);
 /** Grupos de íconos de unidades que quedaron huérfanos sobre casillas eliminadas. */
 const ORPHAN_ICON_GROUPS = ["g944-8-6", "g1009-1-2"];
 
-/** Cada elemento <path> del SVG (los atributos pueden ir en cualquier orden/línea). */
-const PATH_ELEMENT_RE = /<path\b[\s\S]*?\/>/g;
-const STROKE_RE = /stroke:#([0-9a-fA-F]{6})/;
-const HEXAGON_RE = /sodipodi:sides="6"/;
-
-interface ParsedPath {
-  block: string;
-  isHexagon: boolean;
-  stroke?: string;
-  id?: string;
+function hexagonPaths(svg: string): SvgPathElement[] {
+  return parseSvgPathElements(svg).filter((p) => p.isHexagon);
 }
 
-function parsePath(block: string): ParsedPath {
-  const strokeMatch = block.match(STROKE_RE);
-  const idMatch = block.match(/id="([^"]+)"/);
-  return {
-    block,
-    isHexagon: HEXAGON_RE.test(block),
-    stroke: strokeMatch ? `#${strokeMatch[1]!.toLowerCase()}` : undefined,
-    id: idMatch?.[1],
-  };
-}
-
-function hexagonPaths(svg: string): ParsedPath[] {
-  return [...svg.matchAll(PATH_ELEMENT_RE)]
-    .map((m) => parsePath(m[0]))
-    .filter((p) => p.isHexagon);
-}
-
-function filterSvg(svg: string): { output: string; removed: ParsedPath[] } {
+function filterSvg(svg: string): { output: string; removed: SvgPathElement[] } {
   let output = "";
   let cursor = 0;
-  const removed: ParsedPath[] = [];
+  const removed: SvgPathElement[] = [];
 
   for (const match of svg.matchAll(PATH_ELEMENT_RE)) {
     output += svg.slice(cursor, match.index);
     cursor = match.index! + match[0].length;
 
-    const path = parsePath(match[0]);
+    const path = parseSvgPath(match[0]);
     const shouldRemove =
       path.isHexagon && path.stroke !== undefined && REMOVE_STROKES.has(path.stroke);
 
