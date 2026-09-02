@@ -168,10 +168,27 @@ bun run render           # render hexágonos en terminal (--playmat, --build)
       maniobras gratis → victoria. Mapa ASCII del tablero + paneles de mano/
       reserva/fichas por turno. El Clérigo que roba mantiene el turno.
     - 91 tests verdes (`bun run check:all`).
+  - **Cliente TUI diseñado y encargado** (otro agente lo implementará):
+    - `docs/tui-design.md` — diseño UI/UX estilo Final Fantasy + ASCII art
+      (layout de 4 regiones, cursor de casilla con resaltado, menú de
+      acciones viable-only, mano rival oculta, screen de título/draft/
+      victoria; mapeo a OpenTUI en su §9).
+    - `docs/client-tui-spec.md` — spec del agente implementador: stack,
+      arquitectura (`src/client/`), contrato engine→GameStateView, teclado,
+      orden, aceptación y trampas.
+    - **Skill de OpenTUI instalada** en `.agents/skills/opentui/`
+      (framework: `anomalyco/opentui`, paquetes `@opentui/core` +
+      `@opentui/keymap`; TUI en TypeScript sobre Bun en el MISMO proceso que
+      el motor — sin Rust ni transporte). Reinstalar/actualizar con
+      `npx skills add anomalyco/opentui --skill opentui --yes`.
+    - La TUI NO debe mezclar readline (`setup-draft.ts`/`play.ts`) con el
+      renderer OpenTUI (dos lecturas de stdin); usa `DraftSession` y `Game`
+      directamente.
 - Siguiente paso: cerrar el ciclo 2 — commit atómico en `ciclo-2-configuracion`
   (mensaje conventional; hooks Husky/commitlint lo validan) y PR a `main`
   cuando el usuario lo autorice (nunca push directo). Después, ciclos
-  siguientes de la spec: servidor/cliente y TUI (spec §6-7, estructura
-  `src/shared/`, `src/server/`, `src/client/`), DTOs/`toDTO`, y la parte
-  online (opcional IA). `reglas.md` sigue pendiente de crear desde  la conversación (las reglas confirmadas están en `DECISIONS.md` y los
-  comentarios del código).
+  siguientes de la spec: el cliente TUI (spec §7) según `docs/client-tui-spec.md`
+  (estructura `src/client/`), servidor/DTOs (`src/shared/`, `src/server/`,
+  `src/shared/dto.ts`), y la parte online (opcional IA). `reglas.md` sigue
+  pendiente de crear desde la conversación (las reglas confirmadas están en
+  `DECISIONS.md` y los comentarios del código).
