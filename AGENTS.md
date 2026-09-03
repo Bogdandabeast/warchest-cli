@@ -179,8 +179,12 @@ bun run render           # render hexágonos en terminal (--playmat, --build)
     - **Skill de OpenTUI instalada** en `.agents/skills/opentui/`
       (framework: `anomalyco/opentui`, paquetes `@opentui/core` +
       `@opentui/keymap`; TUI en TypeScript sobre Bun en el MISMO proceso que
-      el motor — sin Rust ni transporte). Reinstalar/actualizar con
+      el motor — sin Rust ni transporte). NO se versiona (`.gitignore`):
+      reinstalar/actualizar con
       `npx skills add anomalyco/opentui --skill opentui --yes`.
+    - Los PNG de assets (`assets/troops/*.png`, `assets/board/*.png`) tampoco
+      se versionan (`.gitignore`); se generan con `bun run board-png` /
+      `bun run trim-caballero` o se añaden en local.
     - La TUI NO debe mezclar readline (`setup-draft.ts`/`play.ts`) con el
       renderer OpenTUI (dos lecturas de stdin); usa `DraftSession` y `Game`
       directamente.
