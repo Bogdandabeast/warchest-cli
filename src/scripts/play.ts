@@ -395,18 +395,36 @@ function buildOptions(rl: Interface, game: Game, playerId: PlayerId): MenuOption
   const options: MenuOption[] = [];
 
   // 1. Desplegar — monedas de tipo en mano y localización controlada libre.
-  const deployable = handTypes.filter((t) => unitsOf(game, playerId, t).length < (t === "infanteria" ? 2 : 1));
+  //    El Explorador (I) además puede desplegar en CUALQUIER casilla vacía
+  //    adyacente a una unidad aliada.
   const freeControlled = game.board
     .getControlledLocations(playerId)
     .filter((n) => game.board.unitAt(n.id) === undefined)
     .map((n) => n.id);
-  if (deployable.length > 0 && freeControlled.length > 0) {
+  const scoutCells = handTypes.includes("explorador")
+    ? [...new Set(ownUnits(game, playerId).flatMap((u) => game.board.getNeighbors(u.position).filter((p) => game.board.unitAt(p) === undefined)))]
+    : [];
+  // Solo tipos con AL MENOS una casilla válida (desplegables y con sitio): el
+  // Explorador vale con controladas O adyacentes a un aliado; el resto solo
+  // con controladas libres. Así el pickFromList de debajo nunca recibe una
+  // lista vacía y no se muestra el menú si el filtrado deja vacío.
+  const deployableWithCells = handTypes.filter((t) =>
+    unitsOf(game, playerId, t).length < (t === "infanteria" ? 2 : 1)
+    && (t === "explorador" ? freeControlled.length > 0 || scoutCells.length > 0 : freeControlled.length > 0),
+  );
+  if (deployableWithCells.length > 0) {
     options.push({
-      label: `Desplegar (${deployable.map((t) => UNIT_NAMES[t]).join(", ")})`,
+      label: `Desplegar (${deployableWithCells.map((t) => UNIT_NAMES[t]).join(", ")})`,
       run: async () => {
-        const type = await pickFromList(rl, "Tipo a desplegar", deployable, (t) => `${UNIT_NAMES[t]} (${UNIT_TOTAL_COINS[t]} monedas)`);
+        const type = await pickFromList(rl, "Tipo a desplegar", deployableWithCells, (t) => `${UNIT_NAMES[t]} (${UNIT_TOTAL_COINS[t]} monedas)`);
         if (type === undefined) return undefined;
-        const position = await pickFromList(rl, "Localización controlada libre", freeControlled, (p) => p);
+        const cells = type === "explorador" ? [...new Set([...freeControlled, ...scoutCells])] : freeControlled;
+        const position = await pickFromList(
+          rl,
+          type === "explorador" ? "Casilla de despliegue (controlada o adyacente a un aliado)" : "Localización controlada libre",
+          cells,
+          (p) => p,
+        );
         if (position === undefined) return undefined;
         return game.deploy(playerId, type, position);
       },

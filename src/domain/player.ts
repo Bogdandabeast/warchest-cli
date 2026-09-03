@@ -66,6 +66,7 @@ export class Player {
       if (this.bag.isEmpty()) {
         if (this.discard.isEmpty()) break;
         this.discard.shuffleInto(this.bag);
+        this.bag.shuffle(random);
       }
     }
     return drawn;

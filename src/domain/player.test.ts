@@ -39,6 +39,15 @@ describe("Player", () => {
     expect(player.discard.isEmpty()).toBe(true);
   });
 
+  test("drawCoins rellena la bolsa desde el descarte y completa el robo de 3", () => {
+    const player = makePlayer();
+    player.bag.addUnit("arquero", 1);
+    player.discard.addUnit("caballeria", 2);
+    expect(player.drawCoins(3, () => 0)).toBe(3);
+    expect(player.hand.total()).toBe(3);
+    expect(player.discard.isEmpty()).toBe(true);
+  });
+
   test("drawCoins devuelve menos si no hay suficientes monedas", () => {
     const player = makePlayer();
     player.bag.addUnit("arquero", 1);

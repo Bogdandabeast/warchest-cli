@@ -32,3 +32,12 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # Finder (MacOS) folder config
 .DS_Store
+
+# Skills de agentes (se instalan con `npx skills add`, no se versionan)
+.agents/skills/
+skills-lock.json
+
+# Assets de imagen: PNGs de tropas y del tablero (se generan con bun run
+# board-png / trim-caballero o se añaden manualmente; no se versionan)
+assets/troops/*.png
+assets/board/*.png
