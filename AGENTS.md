@@ -184,7 +184,13 @@ bun run render           # render hexágonos en terminal (--playmat, --build)
     - La TUI NO debe mezclar readline (`setup-draft.ts`/`play.ts`) con el
       renderer OpenTUI (dos lecturas de stdin); usa `DraftSession` y `Game`
       directamente.
-- Siguiente paso: cerrar el ciclo 2 — commit atómico en `ciclo-2-configuracion`
+- **Ciclo 3 — cliente TUI (rama `ciclo-3-tui`, en curso)**: instalado el stack
+  `@opentui/react` + `@opentui/core` + `@opentui/keymap` y creado el cliente
+  en `src/client/` con proyección `GameStateView`, mapa compacto, paneles,
+  draft por teclado, menú viable-only, mano rival oculta y limpieza explícita
+  del renderer. Los flujos de señalamiento y smoke final deben verificarse
+  antes de cerrar el ciclo.
+  - Siguiente paso: cerrar el ciclo 2 — commit atómico en `ciclo-2-configuracion`
   (mensaje conventional; hooks Husky/commitlint lo validan) y PR a `main`
   cuando el usuario lo autorice (nunca push directo). Después, ciclos
   siguientes de la spec: el cliente TUI (spec §7) según `docs/client-tui-spec.md`

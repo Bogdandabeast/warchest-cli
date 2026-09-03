@@ -1,5 +1,182 @@
 # Decisiones de diseño
 
+## Unreleased — Cliente TUI (2026-09-02)
+
+- **Resalte de las tropas jugables en el tablero** (pedido del usuario:
+  accesibilidad — distinguir de un vistazo qué tropas se pueden usar): el
+  tablero en modo `coin`/`action` resalta con halo de acento + chip de apodo
+  `✦` las unidades propias jugables (tipo en la mano / moneda elegida). Se
+  usa el halo exterior (`ring`) que ya existía para la selección, no se
+  oscurece el resto del tablero: lo jugable brilla y lo demás conserva su
+  color real, para no perder de vista el estado completo del campo (a
+  diferencia del modo de señalamiento, donde sí se oscurece).
+
+- **El descarte muestra la orientación real de cada moneda** (pedido del
+  usuario: distinguir boca arriba de boca abajo): `DiscardPile` guarda la
+  orientación (`addFaceUp`/`addFaceDown`) que decide el motor — maniobras
+  boca arriba (la tropa actúa y se ve la cara), pasar/reclamar/reclutar y
+  la moneda Real boca abajo (el token Real no controla ninguna tropa). En
+  la `DiscardView` una moneda boca abajo se dibuja con la ficha de control
+  en miniatura y una boca arriba con su PNG. Se sigue mostrando el descarte
+  de AMBOS jugadores (hot-seat comparte pantalla).
+- **Registro de eventos con la facción protagonista** (pedido del usuario:
+  "cuervos han desplegado…, lobos han atacado…"): los mensajes del motor
+  hablan de `player1/player2`; `log.ts` los traduce a facciones y etiqueta
+  cada línea con la facción que la protagoniza (color en la UI). El actor de
+  la acción etiqueta el mensaje principal; cada evento del resultado lleva
+  su propia facción.
+- **El asistente de tácticas no ofrece acciones que el motor rechaza**
+  (bug Lancero): la embestida contra un Caballero sin reforzar es ilegal en
+  el motor, pero el asistente la ofrecía y la carga fallaba silenciosamente
+  ("solo se movió"). Regla: una táctica solo se ofrece si existe al menos
+  una secuencia completa de pasos VÁLIDA en el motor — el Lancero (y la
+  Caballería) filtran los blancos que son Caballero sin atacante reforzado.
+
+- **El descarte se ve boca arriba para AMBOS jugadores** (pedido del
+  usuario: "zona de descarte de cada jugador donde se pueden ver las monedas
+  que se han jugado"): aunque en el juego físico los descartes boca abajo son
+  privados, en hot-seat ambos comparten pantalla y el usuario quiere ver las
+  monedas jugadas. `PlayerView.discard` proyecta las monedas de cada jugador
+  en orden; la `DiscardView` las muestra como caras (PNG pequeño / ⟡ real),
+  con las más recientes primero. Si en el futuro se quiere ocultar el del
+  rival, basta con proyectar solo el propio.
+- **La zona de descarte vive en la pantalla principal de partida** (entre el
+  tablero y la mano/menú): el tablero nativo cede filas (`RESERVED_ROWS`
+  12 → 18) para que el descarte no se solape con la mano; en los modos de
+  señalamiento (targeting/tácticas/maniobras gratis) no se muestra para no
+  encoger el tablero durante la elección de blancos.
+
+- **Toda elección de casilla/unidad usa la selección sobre el tablero**
+  (pedido del usuario: "piensa en qué más casos puede ser útil"): el modo
+  oscurecido + brillo + cursor ← → cubre atacar (pie con el apodo de la
+  unidad bajo el cursor: `▶ B10 · Piquero`), desplegar/mover/dominar,
+  maniobras gratis (paso de blanco Y paso de concesión, que resalta la
+  unidad que puede actuar), y TODOS los pasos posicionales del asistente de
+  tácticas (Alférez/Mariscal "con quién", Arquero/Ballestero/Lancero a
+  distancia, Caballería, Caballería ligera, Guardia Real, blancos de
+  Infantería). Solo quedan como menú de texto las elecciones NO posicionales
+  (qué maniobra hace la Infantería, tipo de la reserva al reclutar, de dónde
+  quita la moneda la Guardia Real).
+
+- **Las tácticas con blancos de casilla se eligen sobre el tablero** (pedido
+  del usuario: "una selección parecida" a desplegar/mover para Caballería,
+  Caballería ligera y Lancero — cualquier táctica que mueve): si TODAS las
+  opciones del paso actual del asistente son posiciones (`abilityStepPositions`
+  ≠ `null`), la TUI reutiliza `TargetingView` (tablero oscurecido + casillas
+  válidas brillando + cursor ← →) con el título del paso en vez del menú de
+  texto. Los pasos con opciones no-posicionales (Infantería: maniobra/omitir/
+  ejecutar) siguen con el menú. Esc mantiene su semántica (quitar token),
+  solo cambia el render del paso.
+
+- **El tablero se espeja verticalmente según el jugador actual** (pedido del
+  usuario: "invierte el tablero para que el jugador rival esté arriba
+  siempre"): en hot-seat ambos comparten pantalla, así que la perspectiva
+  rota al jugador que actúa — cuando juega player1 (amarillo, que el SVG
+  dibuja arriba) se hace flip en Y; cuando juega player2 no hace falta
+  (morado ya abajo). Resultado: tus bases SIEMPRE abajo, el rival arriba, en
+  partida y en los modos de señalamiento. El flip se aplica en la misma
+  construcción del layout (`hexBoardLayout(cols, rows, flip)`), espejando
+  muestras, anillo de selección y centros, así todo el overlay lo hereda.
+- **Pantalla de cambio de turno / revelación con la ficha de control**
+  (pedido del usuario): entre turnos se muestra la ficha blanca/negra en
+  grande (Lobos/Cuervos) y "TURNO DE …"; Enter continúa. Oculta el tablero
+  para que el siguiente jugador no vea el estado del rival antes de su turno
+  (privacidad hot-seat). Se muestra tras cada acción exitosa, pase,
+  retirada, cierre de ronda y al iniciar la partida tras el draft.
+- **Apodo de la unidad bajo la moneda en el tablero** (pedido del usuario):
+  nombres cortos y legibles (los de dos palabras se reducen a una;
+  `UNIT_NICKNAME` en `art.ts`) en una etiqueta con fondo de mesa debajo de
+  la moneda, independiente de que el PNG esté cargado. Se prioriza legibilidad
+  sobre ortografía completa (nickname de juego, p. ej. `CabLig.`).
+- **Todas las tropas tienen PNG propio** (pedido del usuario): el usuario
+  añadió `explorador.png` y `ballestero.png`, así que ninguna unidad usa
+  placeholder; el caballero ya no se comparte por caché.
+- **El draft muestra las elegidas de ambos jugadores en grande**: panel por
+  facción bajo la cabecera con el PNG de cada tropa ya escogida (+ apodo) y
+  ▶ en la facción activa. La altura del panel se descuenta del área de
+  cartas para que todo quepa en el terminal.
+
+- **El tablero de la partida vuelve a ser render nativo, no PNG** (pedido del
+  usuario: "igual que cuando corro `bun run render`"): el PNG del playmat
+  (que OpenTUI muestra como bloques Unicode o Kitty/Sixel según la terminal)
+  se queda SOLO para la vista previa de resoluciones; el tablero de juego
+  dibuja las casillas como hexágonos de color con medio-bloques `▀`, con la
+  misma geometría, contracción (0.88) y paleta que
+  `render-board-terminal.ts`. La escala es uniforme (proporción real, sin
+  estirar) y el lienzo llena el área disponible: filas = terminal − 12
+  (mano/menú, cabecera y ayudas), ancho = filas × 2 × 1632/1802 recortado a
+  la terminal. El usuario eligió casillas GRANDES llenando el área, no los
+  márgenes laterales del SVG completo.
+- **Las monedas siguen siendo la imagen del caballero encima de los
+  hexágonos** (decisión del usuario: "hexágonos coloreados + monedas PNG
+  encima"): diámetro = círculo inscrito en el hexágono (√3·r2 ≈ 205 px SVG,
+  ancho par → media altura = redonda 1:1), para que la moneda llene la
+  casilla sin invadir las vecinas. Mientras la imagen no está lista se
+  muestra el marcador de texto (L/C + glifo ×pila) en el centro.
+- **La geometría vive en `src/client/hex-board.ts` y se cachea por tamaño**;
+  el SVG se lee UNA vez por módulo vía `node:fs/promises` (no `readFileSync`
+  de `node:fs`, que los tests de `build-board-from-terrain` mockean a nivel
+  de proceso y romperían el render).
+- `BoardView` (juego, reclutar, señalamiento) usa `HexBoardView`;
+  `ImageBoardView` (PNG 80×33) se mueve a `views/board-image.tsx` solo para
+  la vista previa de resoluciones.
+
+- Se confirma que cada ronda roba hasta 3 monedas por jugador. Si la bolsa se
+  queda corta, se recicla y baraja el descarte inmediatamente para completar
+  el robo; cuando no queda ninguna moneda, se continúa con las disponibles.
+
+- La UX se simplifica a una secuencia de divulgación progresiva: tablero
+  grande → selección de una de las tres monedas → acciones válidas para esa
+  moneda → confirmación. `Esc` retrocede un nivel para poder cambiar de
+  moneda; no se presentan paneles completos ni acciones irrelevantes de golpe.
+- El tablero es la región dominante de la pantalla: los símbolos de terreno,
+  control y tropas se dibujan dentro de cada celda. Se mantienen fuera del
+  tablero solo las monedas y las acciones guiadas.
+- **El tablero del juego es un único PNG del playmat** (`assets/board/
+  board-1v1.png`, `bun run board-png`): se rasteriza el board compuesto con
+  `@resvg/resvg-js` recortando el viewBox a la región de las 37 casillas
+  (984 149 1632 1802) al doble de resolución, manteniendo el arte real de
+  las bases (lobos y cuervos) y las líneas de hexágono. El cliente dibuja la
+  imagen con `fit="fill"` en `BOARD_CANVAS` (40×22 celdas) y superpone
+  fichas (blanca/negra), id de base neutral, unidades, cursor y objetivos en
+  `hexCenter` — proyección lineal exacta SVG→celdas del reticulado (col A
+  x=1130.42, paso 223.19; fila 0 y=276.84, paso 128.86). Sustituye al
+  render de tiles sueltos (`casilla.png`), que queda solo como fallback de
+  carga; la geometría se extrae del propio SVG, no aproximada a mano.
+- Se añade `@resvg/resvg-js` como devDependency solo para el script de
+  assets (`board-png`); el runtime del cliente sigue sin dependencias nuevas.
+- **El tablero se agrandó a 80×33 celdas** (100 % más ancho y 50 % más
+  alto respecto a 40×22, pedido del usuario). La proyección SVG→celdas es
+  lineal e independiente del tamaño, así que solo cambia `BOARD_CANVAS`;
+  los overlays se escalan solos.
+- **Todas las monedas usan la imagen del caballero** (decisión del usuario
+  mientras no haya arte por entidad): en el tablero las unidades son
+  MONEDAS de tamaño = hexágono 1:1 (`hexSize()`: misma escala que la
+  casilla), y en la mano tropas y moneda real muestran la misma moneda. El
+  marcador de pila y facción (L/C ×N) se sobreescribe sobre la moneda para
+  conservar la info de juego. Se dejó `coinImageFor(type)` como punto de
+  extensión para imágenes por entidad futuras.
+- **`protocol="auto"` en todos los `<image>`**: el mismo protocol efectivo en
+  todas las imágenes solapadas (requisito de OpenTUI) y degradación a bloques
+  Unicode cuando no hay Kitty/Sixel. Un solo cargador
+  (`board-images.ts`) comparte las 3 NativeImage entre todos los tiles;
+  si alguna falla, `BoardView` cae al mapa de píxeles ASCII anterior
+  (que se mantiene como fallback y está cubierto por tests).
+
+- Se adopta `@opentui/react` sobre `@opentui/core`, con React 19 y
+  `@opentui/keymap` disponible para las capas de atajos. La TUI se ejecuta en
+  el mismo proceso Bun que `Game`; no usa transporte ni un segundo lector de
+  stdin.
+- `src/client/engine-view.ts` es la única frontera hacia el dominio: produce
+  snapshots copiados y oculta completamente las monedas de la mano y reserva
+  del rival. Los helpers de mapa y menú son funciones puras y tienen pruebas
+  unitarias sin terminal real.
+- La primera entrega mantiene la pantalla densa y los cuatro bloques FF
+  siempre visibles; las acciones viables se calculan desde el snapshot y los
+  errores del motor se muestran como mensajes, sin mutar reglas en la capa de
+  cliente. Las acciones que requieren blancos complejos quedan preparadas para
+  el modo de señalamiento con cursor del siguiente afinado.
+
 ## v0.3.1 — Rondas, reglas finales y partida jugable (2026-09-02)
 
 - **El Clérigo "roba y usa de inmediato" se implementa reteniendo el turno**:

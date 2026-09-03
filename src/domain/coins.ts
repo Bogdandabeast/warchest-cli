@@ -210,12 +210,66 @@ export class Hand extends CoinCollection {
   }
 }
 
+/** Registro de una moneda en el descarte (cómo entró). */
+export interface DiscardRecord {
+  /** Tipo de tropa (si es una moneda de unidad). */
+  type?: UnitType;
+  /** ¿Es la moneda real? */
+  royal?: boolean;
+  /**
+   * true = se jugó BOCA ARRIBA (maniobra con su tropa: mover/atacar/dominar/
+   * táctica); false = BOCA ABAJO (pasar, reclamar iniciativa, reclutar,
+   * fin de ronda y SIEMPRE la moneda real, que no controla ninguna tropa).
+   */
+  faceUp: boolean;
+}
+
 /**
  * Pila de descarte: las monedas descartadas (boca abajo o boca arriba) que
  * volverán a la bolsa al barajar. La moneda real descartada vive aquí como
  * objeto `RoyalCoin`.
+ *
+ * Guarda además un registro ordenado de CÓMO entró cada moneda (boca arriba
+ * si se usó para maniobrar con su tropa, boca abajo en el resto de casos) —
+ * lo consume la vista de la TUI para mostrar la cara de la moneda o la ficha
+ * de control como dorso. El registro se resetea al vaciar la pila (barajar).
  */
 export class DiscardPile extends CoinCollection {
+  private records: DiscardRecord[] = [];
+
+  /** Añade `count` monedas de un tipo; `faceUp` = se descartaron boca arriba. */
+  override addUnit(type: UnitType, count = 1, faceUp = false): void {
+    for (let i = 0; i < count; i++) {
+      this.coins.push(new UnitCoin(type));
+      this.records.push({ type, faceUp });
+    }
+  }
+
+  /** La moneda real SOLO se descarta boca abajo (no controla ninguna tropa). */
+  override addRoyal(): void {
+    if (this.hasRoyal()) return;
+    this.coins.push(new RoyalCoin());
+    this.records.push({ royal: true, faceUp: false });
+  }
+
+  /** Añade monedas ya existentes (fin de ronda): siempre boca abajo. */
+  override add(coin: Coin, count = 1): void {
+    super.add(coin, count);
+    for (let i = 0; i < count; i++) {
+      this.records.push(coin instanceof UnitCoin ? { type: coin.type, faceUp: false } : { royal: true, faceUp: false });
+    }
+  }
+
+  /** Registro ordenado: la primera moneda descartada primero. */
+  entries(): readonly DiscardRecord[] {
+    return this.records.slice();
+  }
+
+  override clear(): void {
+    super.clear();
+    this.records = [];
+  }
+
   /** Baraja todo el descarte en la bolsa (spec §3.2.5). */
   shuffleInto(bag: Bag): void {
     bag.mergeFrom(this);
@@ -250,12 +304,12 @@ export class Reserve extends CoinCollection {
 
   /**
    * Recluta una moneda del tipo indicado: la saca de la reserva y la coloca
-   * boca arriba en la pila de descarte. Devuelve `false` si no hay monedas
-   * de ese tipo en la reserva.
+   * boca arriba en la pila de descarte (la moneda reclutada sí se ve).
+   * Devuelve `false` si no hay monedas de ese tipo en la reserva.
    */
   recruit(type: UnitType, discard: DiscardPile): boolean {
     if (!this.removeUnit(type)) return false;
-    discard.addUnit(type);
+    discard.addUnit(type, 1, true);
     return true;
   }
 }

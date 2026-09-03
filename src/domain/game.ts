@@ -276,7 +276,11 @@ export class Game {
 
   // ── Acciones de colocación ───────────────────────────────────────────────
 
-  /** Desplegar: gasta una moneda de la mano y crea la unidad en una localización vacía que controles. */
+  /**
+   * Desplegar: gasta una moneda de la mano y crea la unidad en una casilla
+   * vacía que controles (localización). El Explorador (I) puede hacerlo en
+   * CUALQUIER casilla vacía adyacente a una unidad aliada.
+   */
   deploy(playerId: PlayerId, unitType: UnitType, position: Position): GameResult {
     const player = this.player(playerId);
     if (!player.hand.hasUnit(unitType)) {
@@ -292,11 +296,15 @@ export class Game {
 
     const node = this.board.getNode(position);
     if (node === undefined) return err(`La casilla ${position} no existe.`);
-    if (!node.isLocation()) return err("Solo puedes desplegar en una localización (una base).");
     if (this.board.unitAt(position) !== undefined) return err(`La casilla ${position} ya está ocupada.`);
 
-    // Explorador (I): puede desplegar adyacente a cualquier unidad aliada.
+    // Explorador (I): puede desplegar adyacente a cualquier unidad aliada —
+    // y en CUALQUIER casilla vacía (también las de movimiento, no solo
+    // localizaciones), aunque no controle esa casilla.
     const scout = unitType === "explorador" && this.adjacentToOwnUnit(playerId, position);
+    if (!node.isLocation() && !scout) {
+      return err("Solo puedes desplegar en una localización (una base) o, con el Explorador, adyacente a una unidad aliada.");
+    }
     if (!scout && !node.isControlledBy(playerId)) {
       return err("Debes desplegar en una localización vacía que controles.");
     }
@@ -348,11 +356,14 @@ export class Game {
     const result = this.resolveManeuver(playerId, unit, maneuver);
     if (result.success) {
       if (royalPaid) {
+        // La moneda Real SIEMPRE se descarta boca abajo (no controla tropas),
+        // incluso al pagar la táctica de la Guardia Real.
         player.hand.removeRoyal();
         player.discard.addRoyal();
       } else {
+        // Maniobra con la tropa → la moneda se descarta BOCA ARRIBA.
         player.hand.removeUnit(maneuver.unitType);
-        player.discard.addUnit(maneuver.unitType);
+        player.discard.addUnit(maneuver.unitType, 1, true);
       }
     }
     return result;
