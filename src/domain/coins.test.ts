@@ -98,16 +98,31 @@ describe("Hand", () => {
 });
 
 describe("DiscardPile", () => {
-  test("shuffleInto vuelca el descarte a la bolsa", () => {
+  test("shuffleInto vuelca el descarte a la bolsa y resetea el registro", () => {
     const bag = new Bag();
     bag.addUnit("arquero");
     const discard = new DiscardPile();
     discard.addUnit("caballeria", 2);
     discard.addRoyal();
     discard.shuffleInto(bag);
+    // Las monedas (tropas + real) se transfieren a la bolsa…
     expect(bag.total()).toBe(4);
-    expect(discard.isEmpty()).toBe(true);
+    expect(bag.countUnit("caballeria")).toBe(2);
+    expect(bag.hasUnit("arquero")).toBe(true);
     expect(bag.hasRoyal()).toBe(true);
+    // …el descarte queda vacío y su registro (entradas) también.
+    expect(discard.isEmpty()).toBe(true);
+    expect(discard.entries()).toEqual([]);
+  });
+
+  test("shuffleInto con descarte vacío no altera la bolsa ni el registro", () => {
+    const bag = new Bag();
+    bag.addUnit("arquero", 2);
+    const discard = new DiscardPile();
+    discard.shuffleInto(bag);
+    expect(bag.total()).toBe(2);
+    expect(discard.isEmpty()).toBe(true);
+    expect(discard.entries()).toEqual([]);
   });
 
   test("registra cómo entró cada moneda: boca arriba (maniobra) o boca abajo", () => {

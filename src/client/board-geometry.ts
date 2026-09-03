@@ -5,7 +5,8 @@
  * del board compuesto `assets/board/board-1v1.svg` (el SVG es 3600×2100 con
  * mucho margen; el tablero vive en la región `BOARD_CROP`, que se recorta en
  * el viewBox y se rasteriza a `BOARD_OUTPUT_SCALE`×). La imagen se dibuja
- * con `fit="fill"` en una caja de `BOARD_CANVAS` celdas (36×20) en el
+ * con `fit="fill"` en una caja de `BOARD_CANVAS` celdas — 80×33, el doble de
+ * ancho y 1.5× de alto que el lienzo original (pedido del usuario) — en el
  * cliente, así que la posición en celdas de un hexágono es una proyección
  * lineal de sus coordenadas SVG:
  *

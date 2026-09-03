@@ -4,9 +4,17 @@ import { cleanLogText, entriesFromResult, logEntryLabel } from "./log.ts";
 
 describe("registro de eventos (TUI)", () => {
   test("cleanLogText convierte ids de jugador en facciones y quita el dueño redundante", () => {
-    expect(cleanLogText("Caballería de player2 destruida (moneda a la caja).")).toBe("Caballería destruida (moneda a la caja).");
-    expect(cleanLogText("Caballero de player1 pierde una moneda (pila de 1).")).toBe("Caballero pierde una moneda (pila de 1).");
-    expect(cleanLogText("player1 reclama la iniciativa para la próxima ronda.")).toBe("Lobos reclama la iniciativa para la próxima ronda.");
+    // El dueño sobra solo cuando coincide con la facción que etiqueta la línea.
+    expect(cleanLogText("Caballería de player2 destruida (moneda a la caja).", "player2")).toBe("Caballería destruida (moneda a la caja).");
+    expect(cleanLogText("Caballero de player1 pierde una moneda (pila de 1).", "player1")).toBe("Caballero pierde una moneda (pila de 1).");
+    expect(cleanLogText("player1 reclama la iniciativa para la próxima ronda.", "player1")).toBe("Lobos reclama la iniciativa para la próxima ronda.");
+  });
+
+  test("cleanLogText conserva el dueño cuando NO coincide con la facción de la línea", () => {
+    // Línea etiquetada LOBOS (player1) que describe la tropa rival: "de
+    // Cuervos" se conserva porque no repite la etiqueta.
+    expect(cleanLogText("Caballería de player2 destruida (moneda a la caja).", "player1")).toBe("Caballería de Cuervos destruida (moneda a la caja).");
+    expect(cleanLogText("Caballero de player1 pierde una moneda (pila de 1).", "player2")).toBe("Caballero de Lobos pierde una moneda (pila de 1).");
   });
 
   test("entriesFromResult etiqueta la acción y cada evento con su facción", () => {
@@ -30,7 +38,7 @@ describe("registro de eventos (TUI)", () => {
 
   test("cleanLogText recorta líneas muy largas y normaliza espacios", () => {
     const long = `  Un   mensaje ${"muy ".repeat(40)}largo`;
-    expect(cleanLogText(long).length).toBeLessThanOrEqual(90);
-    expect(cleanLogText("  hola   mundo ")).toBe("hola mundo");
+    expect(cleanLogText(long, "player1").length).toBeLessThanOrEqual(90);
+    expect(cleanLogText("  hola   mundo ", "player1")).toBe("hola mundo");
   });
 });

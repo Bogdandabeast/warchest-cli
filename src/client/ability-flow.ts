@@ -239,7 +239,12 @@ function footman(game: Game, playerId: PlayerId, unit: Unit, tokens: readonly Ab
   }
 
   if (awaitingTarget !== undefined) {
-    const footmanUnit = board.unitAt(awaitingTarget.footman)!;
+    const footmanUnit = board.unitAt(awaitingTarget.footman);
+    // La Infantería ya no está en la casilla (tokens obsoletos): sin unidad no
+    // hay blanco que ofrecer — paso vacío para que la UI retroceda.
+    if (footmanUnit === undefined) {
+      return { step: { title: `Infantería en ${awaitingTarget.footman}: elige el blanco`, options: [] } };
+    }
     const options = awaitingTarget.act === "move"
       ? board.getNeighbors(awaitingTarget.footman).filter((p) => board.unitAt(p) === undefined).map((p) => posOption(p, `Mover a ${p}`))
       : enemiesOf(game, playerId)
@@ -299,8 +304,11 @@ function marshal(game: Game, playerId: PlayerId, unit: Unit, tokens: readonly Ab
   if (attackTarget !== undefined) {
     return { request: { ability: "marshal", ally: ally.position, attackTarget } };
   }
+  // El ATAQUE lo ejecuta la aliada: un Caballero solo es atacable por una
+  // unidad reforzada (espejo del motor), así que se reutiliza `canCharge`
+  // junto con la adyacencia antes de ofrecer el objetivo.
   const options = enemiesOf(game, playerId)
-    .filter((enemy) => board.areAdjacent(ally.position, enemy.position))
+    .filter((enemy) => board.areAdjacent(ally.position, enemy.position) && canCharge(ally, enemy))
     .map((enemy) => posOption(enemy.position, `Atacar ${unitLabel(enemy)}`));
   return { step: { title: `Mariscal: objetivo del ataque ordenado a ${unitLabel(ally)}`, options } };
 }

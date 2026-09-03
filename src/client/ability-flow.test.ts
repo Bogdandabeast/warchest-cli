@@ -190,9 +190,12 @@ describe("TUI: asistente de tácticas", () => {
     expect(skip).toBeDefined();
 
     // Al omitir la segunda Infantería la secuencia queda completa → petición
-    // directa con SOLO la maniobra elegida (el salto no entra).
+    // directa con SOLO la maniobra elegida (el salto no entra). Primero se
+    // afirma el discriminante (la variante footman SIEMPRE lleva `maneuvers`)
+    // y después se comprueban longitud y contenido de las maniobras.
     const afterSkip = requestOf(abilityStep(game, "player1", footmanA, [...tokens, skip!.token]));
     expect(afterSkip).toMatchObject({ ability: "footman" });
+    expect("maneuvers" in afterSkip).toBe(true);
     if ("maneuvers" in afterSkip) {
       expect(afterSkip.maneuvers).toHaveLength(1);
       expect(afterSkip.maneuvers[0]).toMatchObject({ kind: "attack", unitPos: base });
@@ -215,6 +218,10 @@ describe("TUI: asistente de tácticas", () => {
       const d = distanceInHexes(game.board, base, n.id);
       return d === 3 && hexesInStraightLine(game.board, base, n.id).length === 2 && hexesInStraightLine(game.board, base, n.id).includes(targetSpot);
     });
+    // El escenario es determinista (casilla a 3 en línea recta tras el
+    // objetivo): primero se asegura que existe y después se preserva la
+    // comprobación del bloque.
+    expect(behind).toBeDefined();
     if (behind !== undefined) rawPlace(game, "player2", "caballeria", behind.id);
 
     const step = stepOf(abilityStep(game, "player1", lancer, []));
@@ -260,6 +267,31 @@ describe("TUI: asistente de tácticas", () => {
     expect(second.options.some((o) => o.label.includes(UNIT_NAMES.caballeria))).toBe(true);
     const done = requestOf(abilityStep(game, "player1", marshal, [{ kind: "pos", position: allySpot }, { kind: "pos", position: targetSpot }]));
     expect(done).toEqual({ ability: "marshal", ally: allySpot, attackTarget: targetSpot });
+  });
+
+  test("mariscal: no ordena atacar a un Caballero si la aliada no está reforzada", async () => {
+    const game = await newGame(["mariscal", "piquero"], ["caballero"]);
+    const base = freeControlledLocation(game, "player1");
+    const marshal = rawPlace(game, "player1", "mariscal", base);
+    const allySpot = findCell(game, base, 2, () => true);
+    rawPlace(game, "player1", "piquero", allySpot); // aliada con 1 moneda
+    const knightSpot = findCell(game, allySpot, 1, (p) => p !== base);
+    rawPlace(game, "player2", "caballero", knightSpot);
+
+    const first = stepOf(abilityStep(game, "player1", marshal, []));
+    expect(first.options.some((o) => o.label.includes(UNIT_NAMES.piquero))).toBe(true);
+
+    // El ataque ordenado lo ejecuta la aliada (sin reforzar): el Caballero
+    // NO se ofrece como objetivo (el motor lo rechazaría igualmente).
+    const second = stepOf(abilityStep(game, "player1", marshal, [{ kind: "pos", position: allySpot }]));
+    expect(second.options).toHaveLength(0);
+
+    // Aliada reforzada (2+ monedas): el Caballero SÍ es un blanco válido.
+    const ally = game.board.unitAt(allySpot);
+    expect(ally).toBeDefined();
+    ally!.addCoin();
+    const reinforced = stepOf(abilityStep(game, "player1", marshal, [{ kind: "pos", position: allySpot }]));
+    expect(reinforced.options.some((o) => o.token.kind === "pos" && o.token.position === knightSpot)).toBe(true);
   });
 
   test("popAbilityToken retrocede un paso; unidades pasivas sin asistente", async () => {

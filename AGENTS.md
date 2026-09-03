@@ -168,37 +168,47 @@ bun run render           # render hexágonos en terminal (--playmat, --build)
       maniobras gratis → victoria. Mapa ASCII del tablero + paneles de mano/
       reserva/fichas por turno. El Clérigo que roba mantiene el turno.
     - 91 tests verdes (`bun run check:all`).
-  - **Cliente TUI diseñado y encargado** (otro agente lo implementará):
-    - `docs/tui-design.md` — diseño UI/UX estilo Final Fantasy + ASCII art
-      (layout de 4 regiones, cursor de casilla con resaltado, menú de
-      acciones viable-only, mano rival oculta, screen de título/draft/
-      victoria; mapeo a OpenTUI en su §9).
-    - `docs/client-tui-spec.md` — spec del agente implementador: stack,
-      arquitectura (`src/client/`), contrato engine→GameStateView, teclado,
-      orden, aceptación y trampas.
+  - **Ciclo 3 — cliente TUI (rama `ciclo-3-tui`)**: el cliente YA ESTÁ
+    IMPLEMENTADO (commit `d13f557` y siguientes de la rama) siguiendo
+    `docs/tui-design.md` (diseño UI/UX estilo Final Fantasy + ASCII art:
+    layout de 4 regiones, cursor de casilla con resaltado, menú de acciones
+    viable-only, mano rival oculta, screens de título/draft/cambio de
+    turno/victoria) y `docs/client-tui-spec.md` (contrato
+    engine→`GameStateView`, teclado por contexto, aceptación).
+    - **Stack**: `@opentui/react` sobre `@opentui/core` + `@opentui/keymap`;
+      TUI en TypeScript sobre Bun en el MISMO proceso que el motor — sin Rust
+      ni transporte. La TUI NO mezcla readline (`setup-draft.ts`/`play.ts`)
+      con el renderer OpenTUI (dos lecturas de stdin): usa `DraftSession` y
+      `Game` directamente (single-fuente: `DraftSession.pick()` y las
+      acciones/rounds de `Game`).
+    - **Estructura `src/client/`**: `app.tsx` (máquina de estados de UI con
+      `Game`/`DraftSession` en refs de componente, no módulo-global),
+      `engine-view.ts` (única puerta al dominio; esconde mano/reserva del
+      rival), helpers puros (`hex-map`, `hex-board`, `board-render`,
+      `ability-flow`, `free-maneuver`, `menu-viability`, `targeting`, `log`,
+      `art`, `theme`, `keymap`, `board-geometry`, `troop-images`) y vistas en
+      `src/client/views/` (title, draft, board, hand, discard, menu, message,
+      targeting, turn, victory, log, gallery, board-preview). Cada helper
+      tiene tests puros (`bun test`, sin terminal real).
+    - **Estado**: `bun run check:all` en verde (typecheck + eslint de
+      `.js/.mjs/.cjs` + tests bun:test); la interacción completa (draft →
+      rondas → 9 acciones → maniobras gratis → victoria) está implementada y
+      se ejecuta con `bun run tui` (entry `src/client/main.tsx`, que hace
+      `renderer.destroy()` en todos los paths de salida). Pendiente de cierre:
+      resolver los comentarios de CodeRabbit de la rama, validar el smoke
+      final y, cuando el usuario lo autorice, abrir/actualizar el PR a `main`.
     - **Skill de OpenTUI instalada** en `.agents/skills/opentui/`
-      (framework: `anomalyco/opentui`, paquetes `@opentui/core` +
-      `@opentui/keymap`; TUI en TypeScript sobre Bun en el MISMO proceso que
-      el motor — sin Rust ni transporte). NO se versiona (`.gitignore`):
+      (framework: `anomalyco/opentui`). NO se versiona (`.gitignore`):
       reinstalar/actualizar con
       `npx skills add anomalyco/opentui --skill opentui --yes`.
     - Los PNG de assets (`assets/troops/*.png`, `assets/board/*.png`) tampoco
       se versionan (`.gitignore`); se generan con `bun run board-png` /
-      `bun run trim-caballero` o se añaden en local.
-    - La TUI NO debe mezclar readline (`setup-draft.ts`/`play.ts`) con el
-      renderer OpenTUI (dos lecturas de stdin); usa `DraftSession` y `Game`
-      directamente.
-- **Ciclo 3 — cliente TUI (rama `ciclo-3-tui`, en curso)**: instalado el stack
-  `@opentui/react` + `@opentui/core` + `@opentui/keymap` y creado el cliente
-  en `src/client/` con proyección `GameStateView`, mapa compacto, paneles,
-  draft por teclado, menú viable-only, mano rival oculta y limpieza explícita
-  del renderer. Los flujos de señalamiento y smoke final deben verificarse
-  antes de cerrar el ciclo.
-  - Siguiente paso: cerrar el ciclo 2 — commit atómico en `ciclo-2-configuracion`
-  (mensaje conventional; hooks Husky/commitlint lo validan) y PR a `main`
-  cuando el usuario lo autorice (nunca push directo). Después, ciclos
-  siguientes de la spec: el cliente TUI (spec §7) según `docs/client-tui-spec.md`
-  (estructura `src/client/`), servidor/DTOs (`src/shared/`, `src/server/`,
-  `src/shared/dto.ts`), y la parte online (opcional IA). `reglas.md` sigue
-  pendiente de crear desde la conversación (las reglas confirmadas están en
-  `DECISIONS.md` y los comentarios del código).
+      `bun run trim-caballero` (o se añaden en local). La TUI degrada a
+      texto/glifos cuando faltan o fallan las imágenes (logo ASCII,
+      marcadores ◉/glifos, fichas ◯/●).
+  - Siguiente paso de la spec (NO hacerlo sin el usuario): cerrar la rama
+    actual (PR a `main` cuando el usuario lo autorice — nunca push directo) y
+    después servidor/DTOs (`src/shared/`, `src/server/`, `src/shared/dto.ts`)
+    y la parte online (opcional IA). `reglas.md` sigue pendiente de crear
+    desde la conversación (las reglas confirmadas están en `DECISIONS.md` y
+    los comentarios del código).

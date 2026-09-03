@@ -40,7 +40,9 @@ function CoinFace({ type, royal }: { type?: UnitType; royal?: boolean }) {
   useEffect(() => {
     if (type === undefined) { setArt(undefined); return; }
     let alive = true;
-    void loadTroopImage(type).then((image) => { if (alive) setArt(image); });
+    void loadTroopImage(type)
+      .then((image) => { if (alive) setArt(image); })
+      .catch(() => { /* fallo de carga: art se queda undefined → glifo */ });
     return () => { alive = false; };
   }, [type]);
   if (royal === true) return <text fg={COLORS.accent} style={{ width: 4, height: 2, justifyContent: "center", alignItems: "center" }}>⟡</text>;

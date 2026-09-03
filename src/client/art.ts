@@ -11,17 +11,19 @@ export const LOGO = [
 export const WOLF_ART = ["     /\\      /\\", "    /  \\____/  \\ ", "  /__/  LOBOS  \\__\\"];
 export const RAVEN_ART = ["        ,__,", "       (o,o)  ...", "       /)__)   "];
 
+// Los códigos deben ser ÚNICOS (se muestran en el mapa: `L<COD>×pila`);
+// clérigo es "Ce" (como en play.ts) para no chocar con la caballería ligera.
 export const UNIT_CODE: Readonly<Record<UnitType, string>> = {
   alferez: "Al", arquero: "Aq", ballestero: "Bs", caballeria: "Cv",
-  "caballeria-ligera": "Cl", caballero: "Cb", clerigo: "Cl", espadachin: "Es",
+  "caballeria-ligera": "Cl", caballero: "Cb", clerigo: "Ce", espadachin: "Es",
   explorador: "Ex", "guardia-real": "GR", guerrero: "Gu", infanteria: "In",
   lancero: "La", mariscal: "Ma", mercenario: "Me", piquero: "Pi",
 };
 
 export const UNIT_GLYPH: Readonly<Record<UnitType, string>> = {
-  alferez: "⚑", arquero: "➶", ballestero: "➶", caballeria: "♞", "caballeria-ligera": "♞",
+  alferez: "⚑", arquero: "➶", ballestero: "➶+", caballeria: "♞", "caballeria-ligera": "♞",
   caballero: "♘", clerigo: "†", espadachin: "⚔", explorador: "☍", "guardia-real": "♛",
-  guerrero: "⚔", infanteria: "⚔", lancero: "↗", mariscal: "⚑", mercenario: "₪", piquero: "↟",
+  guerrero: "⚔⚔", infanteria: "⚔", lancero: "↗", mariscal: "⚑", mercenario: "₪", piquero: "↟",
 };
 
 export function factionMark(player: PlayerId): string {

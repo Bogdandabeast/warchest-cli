@@ -20,26 +20,29 @@ export interface LogEntry {
 /** Límite de caracteres por línea (las muy largas se recortan). */
 const MAX_TEXT = 90;
 
-/** Limpia un mensaje del motor: ids de jugador → facción y espacios normales. */
-export function cleanLogText(text: string): string {
-  const faction = (id: string): string => FACTION_NAMES[id as PlayerId] ?? id;
-  return text
-    .replace(/\bplayer1\b|\bplayer2\b/g, (id) => faction(id))
-    // Tras etiquetar la línea con su facción, "de Lobos"/"de Cuervos"
-    // (que venía de "de player1") sobra: "Caballería de Cuervos destruida"
-    // → "Caballería destruida" bajo la etiqueta CUERVOS.
-    .replace(/ de (Lobos|Cuervos)\b/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, MAX_TEXT);
+/**
+ * Limpia un mensaje del motor: ids de jugador → facción, espacios normales.
+ * `lineFaction` es la facción que etiqueta la línea en la UI: el dueño
+ * redundante "de <misma facción>" (p. ej. "de Cuervos" en una línea
+ * etiquetada CUERVOS) se elimina SOLO cuando coincide con esa facción — si la
+ * línea habla de la tropa del rival, el dueño se conserva.
+ */
+export function cleanLogText(text: string, lineFaction?: PlayerId): string {
+  const nameOf = (id: string): string => FACTION_NAMES[id as PlayerId] ?? id;
+  let cleaned = text.replace(/\bplayer1\b|\bplayer2\b/g, (id) => nameOf(id));
+  if (lineFaction !== undefined) {
+    const ownName = FACTION_NAMES[lineFaction];
+    if (ownName !== undefined) cleaned = cleaned.replace(new RegExp(` de ${ownName}\\b`, "g"), "");
+  }
+  return cleaned.replace(/\s+/g, " ").trim().slice(0, MAX_TEXT);
 }
 
 /** Convierte un resultado (mensaje + eventos) en líneas del registro. */
 export function entriesFromResult(result: GameResult, actor: PlayerId): LogEntry[] {
   const entries: LogEntry[] = [];
-  if (result.message.length > 0) entries.push({ faction: actor, text: cleanLogText(result.message) });
+  if (result.message.length > 0) entries.push({ faction: actor, text: cleanLogText(result.message, actor) });
   for (const event of result.events) {
-    if (event.message.length > 0) entries.push({ faction: event.player, text: cleanLogText(event.message) });
+    if (event.message.length > 0) entries.push({ faction: event.player, text: cleanLogText(event.message, event.player) });
   }
   return entries;
 }

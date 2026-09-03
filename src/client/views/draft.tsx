@@ -45,9 +45,14 @@ export function DraftView({ available, selected, player, playerId, lot, chosen }
   useEffect(() => {
     let alive = true;
     setArt(new Map());
-    void Promise.all(imageTypes.map(async (type) => [type, await loadTroopImage(type)] as const))
-      .then((entries) => { if (alive) setArt(new Map(entries)); })
-      .catch(() => { /* sin imágenes → marcadores de texto */ });
+    // allSettled: una carga que falla no aborta las demás; el mapa se
+    // construye solo con las imágenes que SÍ cargaron (fallback: glifos).
+    void Promise.allSettled(imageTypes.map(async (type) => [type, await loadTroopImage(type)] as const))
+      .then((results) => {
+        if (!alive) return;
+        const entries = results.flatMap((result) => (result.status === "fulfilled" ? [result.value] : []));
+        setArt(new Map(entries));
+      });
     return () => { alive = false; };
   }, [imageTypes.join(",")]);
 

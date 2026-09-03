@@ -77,11 +77,17 @@ src/client/
 
 - `engine-view.ts` produce `GameStateView` (definido en tui-design §11) con
   copias, no referencias mutables del dominio. La mano/reserva del rival van
-  OCCULTAS (`handHidden: { count }`).
-- La TUI importa del dominio SOLO lo necesario: `SVGBoardLoader`,
-  `dealDraftCards`/`DraftSession` (draft), `configureGame`, `Game` y los
-  tipos (`UnitType`, `PlayerId`, `Position`). NO mezclar con el flujo
-  readline de `src/scripts/setup-draft.ts` / `play.ts`: esos scripts leen
+  OCCULTAS y solo como RECUENTO (`handHidden: { count }` /
+  `reserveHidden: { count }`): nunca símbolos, tipos ni detalles de sus
+  monedas.
+- `SVGBoardLoader` NO se importa como parte del dominio: es una dependencia
+  de INFRAESTRUCTURA (`src/infrastructure/svg-board-loader.ts`, lee
+  `assets/board/board-1v1.svg` con `readFile` de `node:fs/promises` y
+  construye el `Board`); no se mueve el loader ni se introduce otro DTO por
+  esto. Del dominio la TUI importa SOLO lo necesario: `dealDraftCards`/
+  `DraftSession` (draft), `configureGame`, `Game` y los tipos (`UnitType`,
+  `PlayerId`, `Position`). NO mezclar con el flujo readline de
+  `src/scripts/setup-draft.ts` / `play.ts`: esos scripts leen
   stdin con readline y PELARÍAN con el renderer (dos lecturas de la misma
   terminal). El draft de la TUI usa `DraftSession.pick()` directamente con
   su propio UI de cartas; el turno usa `game.startRound()/endRound()/

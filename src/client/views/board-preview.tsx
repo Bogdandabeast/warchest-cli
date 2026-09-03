@@ -76,7 +76,9 @@ export function BoardPreviewView({ index }: { index: number }) {
 
   useEffect(() => {
     let alive = true;
-    void loadBoardImages().then((loaded) => { if (alive) setBase(loaded); });
+    void loadBoardImages()
+      .then((loaded) => { if (alive) setBase(loaded); })
+      .catch(() => { if (alive) setBase(null); }); // fallo → error textual, no "…" eterno
     return () => { alive = false; };
   }, []);
 
@@ -89,16 +91,18 @@ export function BoardPreviewView({ index }: { index: number }) {
 
   const total = BOARD_VARIANT_SCALES.length;
   const file = boardVariantFile(scale);
-  const detail = variant === undefined
-    ? "cargando…"
-    : variant === null
-      ? "excede el límite del cliente (~4096 px) — el PNG existe pero no se puede decodificar en el TUI"
-      : `${variant.width}×${variant.height} px (1:1 en el tablero)`;
+  const detail = base === null
+    ? "no se pudieron cargar las imágenes base del tablero"
+    : variant === undefined
+      ? "cargando…"
+      : variant === null
+        ? "excede el límite del cliente (~4096 px) — el PNG existe pero no se puede decodificar en el TUI"
+        : `${variant.width}×${variant.height} px (1:1 en el tablero)`;
 
   return (
     <box style={{ flexDirection: "column", flexGrow: 1, backgroundColor: COLORS.background }}>
       <text fg={COLORS.accent}>{`VISTA PREVIA DEL TABLERO · ${index + 1}/${total}`}</text>
-      <text fg={variant === null ? COLORS.error : COLORS.muted}>{`${file} · escala ${scale}× · ${detail}`}</text>
+      <text fg={base === null || variant === null ? COLORS.error : COLORS.muted}>{`${file} · escala ${scale}× · ${detail}`}</text>
       <box style={{ flexGrow: 1, justifyContent: "center", alignItems: "center", overflow: "hidden" }}>
         {base !== undefined && base !== null && variant !== undefined && variant !== null
           ? <ImageBoardView
@@ -107,7 +111,7 @@ export function BoardPreviewView({ index }: { index: number }) {
               cursor="A7"
               validTargets={["C7", "G5"]}
             />
-          : <text fg={variant === null ? COLORS.error : COLORS.muted}>{variant === null ? "Esta resolución no se puede mostrar en el cliente." : "…"}</text>}
+          : <text fg={base === null || variant === null ? COLORS.error : COLORS.muted}>{base === null ? "No se pudieron cargar las imágenes base del tablero." : variant === null ? "Esta resolución no se puede mostrar en el cliente." : "…"}</text>}
       </box>
       <text fg={COLORS.text}>← → cambiar resolución · Esc / Enter volver a la galería</text>
     </box>

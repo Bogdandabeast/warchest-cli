@@ -140,11 +140,15 @@ Cuatro regiones fijas, siempre visibles (proporciones sobre el total):
 ```
 ┌─ ▓ LOBOS ────────────────┐        ┌─ ▓ CUERVOS ────────────────┐
 │ fichas  ▨▨▨▨░░  (4/6)     │ (el activo lleva borde dorado + ▷) │
-│ mano    ◉Pi ◉Aq ⟡R        │        │ mano    ◉La ◉Es            │
-│ reserva Pi×3 Aq×1         │        │ reserva La×2               │
+│ mano    ◉Pi ◉Aq ⟡R        │        │ mano    ??? (2)             │
+│ reserva Pi×3 Aq×1         │        │ reserva ??? (1)             │
 │ tablero Pi@D3(2) Aq@C1    │        │ tablero —                  │
 └───────────────────────────┘        └────────────────────────────┘
 ```
+- Solo el panel del JUGADOR LOCAL muestra su mano y reserva reales (con
+  símbolos); el panel del OPONENTE muestra únicamente el RECUENTO
+  (`mano ??? (3)`, `reserva ??? (n)`) — nunca símbolos, tipos ni detalles de
+  sus monedas (no son información pública en el juego físico).
 - **Mano interactiva**: las monedas de la mano son objetos seleccionables
   cuando la acción lo pide (descartar para Pasar / Reclamar / Reclutar /
   Guardia Real). Tras activarla, las monedas se numeran `1..n` en el panel y
@@ -211,11 +215,11 @@ Cuatro regiones fijas, siempre visibles (proporciones sobre el total):
 
 ### Alternancia de turnos
 - Tras confirmar una acción: flash dorado en el borde del panel del nuevo
-  jugador, el menú se recalcula y el cursor vuelve a la fila 1. La mano del
-  otro jugador se oculta a medias (`???`, solo cuenta de monedas) para no
-  delatar cartas — EL PANEL DEL OPONENTE MUESTRA LA MANO TAPADA
-  (`mano ◉◉⟡ (3)`): los datos de mano/reserva del rival no son información
-  pública en el juego físico.
+  jugador, el menú se recalcula y el cursor vuelve a la fila 1. La mano y la
+  reserva del rival NO se muestran: el panel del oponente solo representa su
+  mano/reserva por RECUENTO (`mano ??? (3)`, `reserva ??? (2)`), sin
+  símbolos ni detalles de sus monedas, porque no son información pública en
+  el juego físico.
 
 ## 7. Flujo por fases (con sus artes)
 
@@ -337,9 +341,14 @@ Mapeo por región:
 - **Teclado**: `@opentui/keymap` para bindings globales y por contexto
   (menú ≠ señalar blanco ≠ draft). Ratón opcional (clic en casilla) pero no
   requerido.
-- **Límites asumidos**: sin imágenes/3D/audio en la primera versión (aunque
-  OpenTUI podría); sin zoom ni scroll del mapa; sin animaciones de bucle —
-  el redibujado es reactivo a eventos de estado y entrada.
+- **Límites asumidos**: las imágenes SÍ forman parte del alcance del
+  cliente (monedas PNG por tropa sobre el tablero, ficha de control grande,
+  logo del título y la vista previa del playmat en PNG), pero SIEMPRE con
+  fallback textual — logo ASCII, glifos/`◉`, fichas `◯`/`●` — para
+  terminales sin Kitty/Sixel, PNGs ausentes (no versionados) o fallos de
+  decodificación: la partida nunca depende de que una imagen cargue. Fuera
+  de alcance: 3D/audio, zoom o scroll del mapa y animaciones de bucle (el
+  redibujado es reactivo a eventos de estado y entrada).
 
 ## 10. Límites de experiencia (UX) que NO se cruzan
 
@@ -354,8 +363,10 @@ Mapeo por región:
 4. Una sola ventana modal a la vez, siempre con salida `Esc` explícita; las
    ventanas nunca bloquean la vista del mapa a menos que sea obligatorio
    (draft, victoria).
-5. El panel rival oculta mano (¡no es información pública en el juego
-   físico!); el nuestro muestra la del jugador local.
+5. El panel rival oculta mano y reserva: solo muestra su recuento
+   (`mano ??? (n)` / `reserva ??? (n)`), nunca símbolos ni detalles (¡no son
+   información pública en el juego físico!); el nuestro muestra las del
+   jugador local.
 6. Feedback < 1 refresco: cada confirmación muta el estado y redibuja la
    escena completa; el evento resultante aparece arriba del panel ③.
 

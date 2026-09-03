@@ -1,25 +1,22 @@
 import { describe, expect, test } from "bun:test";
-import type { MenuAction } from "./menu-viability.ts";
+import { moveActionSelection, noActionsMessageFor } from "./app.tsx";
 
-function moveSelection(current: number, key: "left" | "right", count: number): number {
-  if (count === 0) return 0;
-  return key === "left" ? Math.max(0, current - 1) : Math.min(count - 1, current + 1);
-}
-
-function actionPrompt(actions: readonly MenuAction[]): string {
-  return actions.length === 0 ? "Esta moneda no permite ninguna acción ahora. Escoge otra moneda." : "ELIGE UNA ACCIÓN";
-}
-
-describe("action flow", () => {
+describe("action flow (producción: app.tsx)", () => {
   test("moves horizontally through action cards", () => {
-    const actions: MenuAction[] = ["deploy", "recruit", "pass"];
-    expect(moveSelection(0, "right", actions.length)).toBe(1);
-    expect(moveSelection(2, "right", actions.length)).toBe(2);
-    expect(moveSelection(0, "left", actions.length)).toBe(0);
+    // moveActionSelection es la función que usa App en los modos coin/action.
+    expect(moveActionSelection(0, "right", 3)).toBe(1);
+    expect(moveActionSelection(2, "right", 3)).toBe(2);
+    expect(moveActionSelection(0, "left", 3)).toBe(0);
+    // Sin opciones la selección no avanza (nunca deja pantalla en blanco).
+    expect(moveActionSelection(0, "right", 0)).toBe(0);
   });
 
   test("never leaves a blank action screen", () => {
-    expect(actionPrompt([])).toContain("Escoge otra moneda");
-    expect(actionPrompt(["pass"])).toBe("ELIGE UNA ACCIÓN");
+    // noActionsMessageFor alimenta el render de App: con opciones viables el
+    // mensaje está vacío (se muestra el menú con su cabecera); sin opciones se
+    // avisa al jugador; sin monedas se invita a retirarse.
+    expect(noActionsMessageFor(2, 0)).toContain("Escoge otra moneda");
+    expect(noActionsMessageFor(2, 1)).toBe("");
+    expect(noActionsMessageFor(0, 0)).toContain("No tienes monedas");
   });
 });

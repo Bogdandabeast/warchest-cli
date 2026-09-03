@@ -124,8 +124,22 @@ export interface HexBoardLayout {
   ring: Int16Array;
 }
 
+/**
+ * Carga las 37 casillas del board compuesto (una sola vez por módulo). Si el
+ * SVG no existe o no se puede leer/clasificar, el fallo es un error accionable:
+ * el asset se regenera con `bun run board-terrain` y la app no puede dibujar
+ * el tablero sin él.
+ */
 const locationsCache: readonly BoardLocation[] = await readFile(BOARD_SVG_PATH, "utf8")
-  .then((svg) => classifyComposedBoardLocations(svg));
+  .then((svg) => classifyComposedBoardLocations(svg))
+  .catch((reason: unknown) => {
+    const detail = reason instanceof Error ? reason.message : String(reason);
+    throw new Error(
+      `No se pudo cargar el tablero SVG (${BOARD_SVG_PATH}): ${detail}. `
+      + "Regenera el asset con `bun run board-terrain` (o verifica que el archivo existe) y vuelve a lanzar la TUI.",
+      { cause: reason },
+    );
+  });
 
 /** Las 37 casillas del board compuesto (leídas del SVG una sola vez). */
 export function boardLocations(): readonly BoardLocation[] {

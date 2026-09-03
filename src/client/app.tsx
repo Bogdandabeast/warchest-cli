@@ -1,5 +1,5 @@
 import { useKeyboard, useRenderer } from "@opentui/react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { SVGBoardLoader } from "../infrastructure/svg-board-loader.ts";
 import { DraftSession, configureGame, dealDraftCards } from "../domain/game-setup.ts";
 import { Game } from "../domain/game.ts";
@@ -29,10 +29,46 @@ import { TargetingView } from "./views/targeting.tsx";
 import { LogView } from "./views/log.tsx";
 import { ownUnitPositions, targetPositions, cursorStep } from "./targeting.ts";
 
-interface Runtime { game?: Game; draft?: DraftSession; }
-const runtime: Runtime = {};
-
 type Mode = "gallery" | "board-preview" | "title" | "draft" | "turn" | "coin" | "action" | "targeting" | "attack-source" | "recruit" | "victory" | "free-maneuver" | "ability" | "log";
+
+/**
+ * Contrato de la UI con el motor (estable, por INTENCIÓN): las acciones de
+ * dominio reciben un solo objeto de callbacks en vez de reenviar decenas de
+ * setters de React, y la UI decide cómo reaccionar (proyectar, loguear,
+ * cambiar de pantalla…).
+ */
+interface DomainCallbacks {
+  /** La partida quedó creada (tras el draft): guarda la instancia del motor. */
+  onGameStarted: (game: Game) => void;
+  /** Proyecta el snapshot del estado actual del motor (events = últimos eventos). */
+  refresh: (game: Game, events?: readonly GameEvent[]) => void;
+  /** Muestra un mensaje en la ventana de mensajes (`error` = línea roja). */
+  onMessage: (message: string, error?: boolean) => void;
+  /** Añade líneas al registro de eventos. */
+  pushLog: (entries: readonly LogEntry[]) => void;
+  /** Cambia el modo de la UI. */
+  setMode: (mode: Mode) => void;
+  /** Revela el cambio de turno con los datos actuales del motor. */
+  onTurnChange: (game: Game) => void;
+  /** Error de carga/dominio: mensaje y vuelta a un modo navegable. */
+  onError: (message: string) => void;
+}
+
+/** Mueve la selección de monedas/acciones con ← →, clavada en los bordes. */
+export function moveActionSelection(current: number, direction: "left" | "right", count: number): number {
+  if (count === 0) return 0;
+  return direction === "left" ? Math.max(0, current - 1) : Math.min(count - 1, current + 1);
+}
+
+/**
+ * Mensaje de la zona de acciones cuando no hay ninguna opción viable (vacío =
+ * se muestra el menú de acciones). Lo usa App; expuesto para los tests.
+ */
+export function noActionsMessageFor(handLength: number, actionCount: number): string {
+  if (handLength === 0) return "No tienes monedas disponibles. Esc para volver o retírate.";
+  if (actionCount === 0) return "Esta moneda no permite ninguna acción ahora. Escoge otra moneda.";
+  return "";
+}
 
 /** Paso del flujo de maniobras gratis (atributos I: Mercenario, Espadachín, Guerrero). */
 interface FreeManeuverFlow {
@@ -64,6 +100,11 @@ function actionsForCoin(view: GameStateView, coinIndex: number, game?: Game): Me
 
 export function App() {
   const renderer = useRenderer();
+  // Referencias al MOTOR (Game/DraftSession) con ciclo de vida por montaje de
+  // App — NUNCA módulo-global: cada montaje de <App/> tiene su partida aislada.
+  // El estado de React (view/mode/…) es el que dispara los renders; estas
+  // refs solo guardan las instancias mutables del dominio.
+  const gameRef = useRef<Game | undefined>(undefined);
   const [mode, setMode] = useState<Mode>("gallery");
   const [draft, setDraft] = useState<DraftSession>();
   const [view, setView] = useState<GameStateView>(emptyView);
@@ -101,41 +142,72 @@ export function App() {
     if (entries.length === 0) return;
     setLog((previous) => [...previous, ...entries].slice(-200));
   };
-  const actions = useMemo(() => actionsForCoin(view, selectedCoin, runtime.game), [view, selectedCoin, runtime.game]);
+  const actions = useMemo(() => actionsForCoin(view, selectedCoin, gameRef.current), [view, selectedCoin, gameRef.current]);
   const activeHand = view.hand;
-  const noActionsMessage = activeHand.length === 0 ? "No tienes monedas disponibles. Esc para volver o retírate." : actions.length === 0 ? "Esta moneda no permite ninguna acción ahora. Escoge otra moneda." : "";
+  const noActionsMessage = noActionsMessageFor(activeHand.length, actions.length);
 
-  const refresh = (events: Parameters<typeof projectGame>[2] = []) => { if (runtime.game) setView(projectGame(runtime.game, runtime.game.currentPlayer, events)); };
+  const currentGame = gameRef.current;
+  const recruitPlayerId = currentGame?.currentPlayer;
+  // Tipos de tropa de la reserva reclutables AHORA: un único cálculo (memo)
+  // compartido entre el handler de teclado y el render de la pantalla de
+  // reclutamiento (recruitIndex se resetea al entrar en esa pantalla).
+  const reserveTypes = useMemo(() => {
+    if (currentGame === undefined || recruitPlayerId === undefined) return [];
+    const player = currentGame.player(recruitPlayerId);
+    return player.unitCards.filter((type) => player.reserve.countUnit(type) > 0);
+  }, [currentGame, recruitPlayerId]);
+
+  /** Callbacks de dominio: cómo reacciona la UI a cada evento del motor. */
+  const domainCallbacks: DomainCallbacks = {
+    onGameStarted: (game) => { gameRef.current = game; },
+    refresh: (game, events = []) => setView(projectGame(game, game.currentPlayer, events)),
+    onMessage: (message, error = false) => { setMessageError(error); setMessage(message); },
+    pushLog,
+    setMode,
+    onTurnChange: (game) => {
+      setTurnPlayer(game.currentPlayer);
+      setTurnRound(game.round);
+      setTurnInitiative(game.initiative === game.currentPlayer);
+      setMode("turn");
+    },
+    onError: (message) => { setMessageError(true); setMessage(message); setMode("title"); },
+  };
+
+  const refresh = (events: Parameters<typeof projectGame>[2] = []) => { if (gameRef.current) setView(projectGame(gameRef.current, gameRef.current.currentPlayer, events)); };
 
   /** Muestra la pantalla de cambio de turno con la ficha del siguiente jugador. */
   const showTurnChange = (): void => {
-    if (!runtime.game) { setMode("coin"); return; }
-    setTurnPlayer(runtime.game.currentPlayer);
-    setTurnRound(runtime.game.round);
-    setTurnInitiative(runtime.game.initiative === runtime.game.currentPlayer);
+    if (!gameRef.current) { setMode("coin"); return; }
+    setTurnPlayer(gameRef.current.currentPlayer);
+    setTurnRound(gameRef.current.round);
+    setTurnInitiative(gameRef.current.initiative === gameRef.current.currentPlayer);
     setMode("turn");
   };
 
   const advanceAfterAction = (result: GameResult): void => {
-    if (!runtime.game || !result.success) return;
-    if (runtime.game.winner) {
-      setView(projectGame(runtime.game, runtime.game.currentPlayer, result.events));
+    if (!gameRef.current || !result.success) return;
+    if (gameRef.current.winner) {
+      setView(projectGame(gameRef.current, gameRef.current.currentPlayer, result.events));
       setMode("victory");
       return;
     }
-    if (runtime.game.player("player1").hand.isEmpty() && runtime.game.player("player2").hand.isEmpty()) {
-      runtime.game.passed.player1 = true;
-      runtime.game.passed.player2 = true;
-      const ended = runtime.game.endRound();
-      const started = runtime.game.startRound();
-      const actor = runtime.game.currentPlayer;
+    if (gameRef.current.player("player1").hand.isEmpty() && gameRef.current.player("player2").hand.isEmpty()) {
+      // Ambas manos vacías: no queda ninguna acción posible en la ronda. Se
+      // cierra con la API del dominio (retirarse = pasar sin moneda, alterna
+      // el turno al rival), SIN escribir `passed` a mano desde la capa de
+      // presentación.
+      gameRef.current.retire(gameRef.current.currentPlayer);
+      gameRef.current.retire(gameRef.current.currentPlayer);
+      const ended = gameRef.current.endRound();
+      const started = gameRef.current.startRound();
+      const actor = gameRef.current.currentPlayer;
       pushLog([...entriesFromResult(ended, actor), ...entriesFromResult(started, actor)]);
       setMessage(started.success ? started.message : ended.message);
-      setView(projectGame(runtime.game, runtime.game.currentPlayer, started.success ? started.events : result.events));
+      setView(projectGame(gameRef.current, gameRef.current.currentPlayer, started.success ? started.events : result.events));
       showTurnChange();
       return;
     }
-    runtime.game.nextTurn();
+    gameRef.current.nextTurn();
     refresh(result.events);
     showTurnChange();
   };
@@ -146,7 +218,7 @@ export function App() {
    * maniobra ANTES de pasar el turno (igual que `bun run play`).
    */
   const afterActionSuccess = (result: GameResult): void => {
-    const game = runtime.game;
+    const game = gameRef.current;
     if (!game || !result.success) return;
     pushLog(entriesFromResult(result, game.currentPlayer));
     refresh(result.events);
@@ -175,7 +247,7 @@ export function App() {
 
   /** Cierra el flujo de maniobras gratis y avanza el turno con los eventos acumulados. */
   const endFreeManeuverPhase = (events: GameEvent[] = fmEvents): void => {
-    const game = runtime.game;
+    const game = gameRef.current;
     const base = fmBase;
     if (!game || !base) {
       setMode("coin");
@@ -209,16 +281,16 @@ export function App() {
       if (key.name === "escape" || key.name === "return") setMode("gallery");
       return;
     }
-    if (mode === "title" && key.name === "return") { const session = new DraftSession(dealDraftCards()); runtime.draft = session; setDraft(session); setMode("draft"); setSelected(0); return; }
+    if (mode === "title" && key.name === "return") { const session = new DraftSession(dealDraftCards()); setDraft(session); setMode("draft"); setSelected(0); return; }
     if (mode === "draft" && draft) {
       if (key.name === "left") setSelected((index: number) => Math.max(0, index - 1));
       if (key.name === "right") setSelected((index: number) => Math.min(draft.available.length - 1, index + 1));
-      if (key.name === "return") { const type = draft.available[selected]; const player = draft.currentPlayer; if (!type || !player) return; draft.pick(player, type); setSelected(0); if (draft.isComplete) void finishDraft(draft, setView, setMode, setMessage, pushLog, setTurnPlayer, setTurnRound, setTurnInitiative); else { setDraft(draft); setMessage(`Turno de ${draft.currentPlayer === "player1" ? "Lobos" : "Cuervos"}.`); } }
+      if (key.name === "return") { const type = draft.available[selected]; const player = draft.currentPlayer; if (!type || !player) return; draft.pick(player, type); setSelected(0); if (draft.isComplete) void finishDraft(draft, domainCallbacks); else { setDraft(draft); setMessage(`Turno de ${draft.currentPlayer === "player1" ? "Lobos" : "Cuervos"}.`); } }
       return;
     }
     if (mode === "victory" && key.name === "return") { setMode("title"); return; }
-    if (mode === "free-maneuver" && runtime.game && fmGrants.length > 0) {
-      const player = runtime.game.currentPlayer;
+    if (mode === "free-maneuver" && gameRef.current && fmGrants.length > 0) {
+      const player = gameRef.current.currentPlayer;
       const grant = fmGrants[fmGrantIndex];
       if (fmStep === "grants") {
         if (key.name === "left") setFmGrantIndex((i: number) => Math.max(0, i - 1));
@@ -251,16 +323,16 @@ export function App() {
         if (target === undefined) { setMessageError(true); setMessage("No hay objetivo válido para la maniobra gratis."); return; }
         const request = freeRequest(grant, kind, kind === "control" ? unitPos : target);
         if (!request) { setMessageError(true); setMessage("No se pudo preparar la maniobra gratis."); return; }
-        const result = runtime.game.executeFreeManeuver(player, request);
+        const result = gameRef.current.executeFreeManeuver(player, request);
         setMessageError(!result.success); setMessage(result.message);
         if (result.success) {
           pushLog(entriesFromResult(result, player));
           const events = [...fmEvents, ...result.events];
           setFmEvents(events);
-          if (runtime.game.winner) { setView(projectGame(runtime.game, player, events)); setMode("victory"); return; }
+          if (gameRef.current.winner) { setView(projectGame(gameRef.current, player, events)); setMode("victory"); return; }
           refresh(result.events);
           // ¿Quedan más concesiones (p. ej. la cadena del Guerrero)?
-          const remaining = grantsForPlayer(runtime.game, player).filter((g) => kindsForFreeGrant(projectGame(runtime.game!, player, events), player, g).length > 0);
+          const remaining = grantsForPlayer(gameRef.current, player).filter((g) => kindsForFreeGrant(projectGame(gameRef.current!, player, events), player, g).length > 0);
           if (remaining.length === 0) { endFreeManeuverPhase(events); return; }
           setFmGrants(remaining);
           setFmGrantIndex(0);
@@ -273,52 +345,69 @@ export function App() {
     }
     if (mode === "coin") {
       if (key.name === "l") { setMode("log"); return; }
-      if (key.name === "left") setSelectedCoin((index: number) => Math.max(0, index - 1));
-      if (key.name === "right") setSelectedCoin((index: number) => Math.min(Math.max(0, view.hand.length - 1), index + 1));
+      if (key.name === "left") setSelectedCoin((index: number) => moveActionSelection(index, "left", view.hand.length));
+      if (key.name === "right") setSelectedCoin((index: number) => moveActionSelection(index, "right", view.hand.length));
       if (key.name === "escape") { setMessage("Elige una de tus monedas."); return; }
       if (key.name === "return") { setSelected(0); setMode("action"); setMessage(`Has elegido ${coinLabel(view, selectedCoin)}. Ahora elige qué hacer.`); }
       return;
     }
-    if (mode === "recruit" && runtime.game) {
-      const player = runtime.game.currentPlayer;
-      const reserveTypes = runtime.game.player(player).unitCards.filter((type) => runtime.game!.player(player).reserve.countUnit(type) > 0);
-      if (key.name === "left") setRecruitIndex((index: number) => Math.max(0, index - 1));
-      if (key.name === "right") setRecruitIndex((index: number) => Math.min(Math.max(0, reserveTypes.length - 1), index + 1));
+    if (mode === "recruit" && gameRef.current) {
+      const player = gameRef.current.currentPlayer;
+      if (key.name === "left") setRecruitIndex((index: number) => moveActionSelection(index, "left", reserveTypes.length));
+      if (key.name === "right") setRecruitIndex((index: number) => moveActionSelection(index, "right", reserveTypes.length));
       if (key.name === "escape") { setMode("action"); setMessage("Elige otra acción para la moneda."); return; }
       if (key.name === "return") {
         const reserveType = reserveTypes[recruitIndex];
-        const coin = runtime.game.player(player).hand.toArray()[selectedCoin];
+        const coin = gameRef.current.player(player).hand.toArray()[selectedCoin];
         if (!reserveType || !coin) { setMessageError(true); setMessage("No hay una tropa disponible para reclutar."); return; }
-        const discard = coin.isRoyal() ? { kind: "royal" as const } : { kind: "unit" as const, unitType: (coin as unknown as { type: UnitType }).type };
-        const result = runtime.game.recruit(player, discard, reserveType);
+        // Narrowing por propiedad `type` (como executeTargetAction): la rama
+        // de tropa solo existe si la moneda lleva `type` (UnitCoin); la Real
+        // no → descarte royal. Sin casts dobles intermedios.
+        const discard = "type" in coin
+          ? { kind: "unit" as const, unitType: coin.type as UnitType }
+          : { kind: "royal" as const };
+        const result = gameRef.current.recruit(player, discard, reserveType);
         setMessageError(!result.success); setMessage(result.success ? `${result.message} Se descartan ambas monedas.` : result.message);
         if (result.success) { afterActionSuccess(result); setRecruitIndex(0); }
       }
       return;
     }
-    if (mode === "attack-source" && runtime.game) {
+    if (mode === "attack-source" && gameRef.current) {
       if (key.name === "escape") { setMode("targeting"); return; }
       if (key.name === "left" || key.name === "right") setAttackReserve((value: boolean) => !value);
       if (key.name === "return") {
-        const attacker = targetUnit ? runtime.game.board.unitAt(targetUnit) : undefined;
-        const target = targetPositions(view, runtime.game.currentPlayer, "attack", targetUnit)[targetIndex];
+        const attacker = targetUnit ? gameRef.current.board.unitAt(targetUnit) : undefined;
+        const target = targetPositions(view, gameRef.current.currentPlayer, "attack", targetUnit)[targetIndex];
         if (!attacker || !target) { setMessageError(true); setMessage("No hay un objetivo válido para atacar."); return; }
-        const result = executeTargetAction("attack", runtime.game.currentPlayer, selectedCoin, targetUnit, target, runtime.game, attackReserve);
+        const result = executeTargetAction("attack", gameRef.current.currentPlayer, selectedCoin, targetUnit, target, gameRef.current, attackReserve);
         setMessageError(!result.success); setMessage(result.message);
         if (result.success) { afterActionSuccess(result); setTargetAction(undefined); setAttackReserve(false); }
       }
       return;
     }
-    if (mode === "ability" && runtime.game && abilityUnitPos) {
-      const player = runtime.game.currentPlayer;
-      const unit = runtime.game.board.unitAt(abilityUnitPos);
+    if (mode === "ability" && gameRef.current && abilityUnitPos) {
+      const player = gameRef.current.currentPlayer;
+      const unit = gameRef.current.board.unitAt(abilityUnitPos);
       if (unit === undefined) { setMode("action"); return; }
-      const progress = abilityStep(runtime.game, player, unit, abilityTokens);
-      // La secuencia ya está completa (el Enter anterior eligió la última opción).
+      const progress = abilityStep(gameRef.current, player, unit, abilityTokens);
+      // La secuencia ya está completa: queda una petición pendiente. Esc la
+      // CANCELA (vuelve al menú sin ejecutar); cualquier otra tecla ejecuta y
+      // limpia el asistente SIEMPRE (éxito o fallo) para que las teclas
+      // siguientes no reintenten solas.
       if ("request" in progress) {
-        const result = runtime.game.executeManeuver(player, { kind: "ability", unitType: unit.type, params: progress.request, unitPos: unit.position });
+        if (key.name === "escape") {
+          setAbilityTokens([]);
+          setAbilityUnitPos(undefined);
+          setMode("action");
+          setMessage("Táctica cancelada. Elige otra acción.");
+          return;
+        }
+        const result = gameRef.current.executeManeuver(player, { kind: "ability", unitType: unit.type, params: progress.request, unitPos: unit.position });
+        setAbilityTokens([]);
+        setAbilityUnitPos(undefined);
         setMessageError(!result.success); setMessage(result.message);
-        if (result.success) { afterActionSuccess(result); setAbilityTokens([]); setAbilityUnitPos(undefined); }
+        if (result.success) { afterActionSuccess(result); }
+        else setMode("action");
         return;
       }
       const options = progress.step.options;
@@ -338,11 +427,16 @@ export function App() {
           return;
         }
         const nextTokens = [...abilityTokens, option.token];
-        const nextProgress = abilityStep(runtime.game, player, unit, nextTokens);
+        const nextProgress = abilityStep(gameRef.current, player, unit, nextTokens);
         if ("request" in nextProgress) {
-          const result = runtime.game.executeManeuver(player, { kind: "ability", unitType: unit.type, params: nextProgress.request, unitPos: unit.position });
+          const result = gameRef.current.executeManeuver(player, { kind: "ability", unitType: unit.type, params: nextProgress.request, unitPos: unit.position });
+          // Limpieza SIEMPRE tras ejecutar: sin tokens pendientes no hay
+          // reintento automático en eventos de teclado posteriores.
+          setAbilityTokens([]);
+          setAbilityUnitPos(undefined);
           setMessageError(!result.success); setMessage(result.message);
-          if (result.success) { afterActionSuccess(result); setAbilityTokens([]); setAbilityUnitPos(undefined); }
+          if (result.success) { afterActionSuccess(result); }
+          else setMode("action");
         } else {
           setAbilityTokens(nextTokens);
           setAbilityIndex(0);
@@ -351,44 +445,44 @@ export function App() {
       }
       return;
     }
-    if (mode === "targeting" && runtime.game && targetAction) {
-      const targets = targetPositions(view, runtime.game.currentPlayer, targetAction, targetUnit, view.hand[selectedCoin]?.type);
+    if (mode === "targeting" && gameRef.current && targetAction) {
+      const targets = targetPositions(view, gameRef.current.currentPlayer, targetAction, targetUnit, view.hand[selectedCoin]?.type);
       if (key.name === "left") setTargetIndex((index: number) => cursorStep(targets, index, -1));
       if (key.name === "right") setTargetIndex((index: number) => cursorStep(targets, index, 1));
       if (key.name === "escape") { setMode("action"); setMessage("Elige otra acción o cancela con Esc."); return; }
       if (key.name === "return" && targets[targetIndex]) {
-        if (targetAction === "attack" && runtime.game.board.unitAt(targets[targetIndex])?.type === "guardia-real") {
+        if (targetAction === "attack" && gameRef.current.board.unitAt(targets[targetIndex])?.type === "guardia-real") {
           setAttackReserve(false); setMode("attack-source"); setMessage("Guardia Real: elige dónde quitar la moneda."); return;
         }
-        const result = executeTargetAction(targetAction, runtime.game.currentPlayer, selectedCoin, targetUnit, targets[targetIndex], runtime.game);
+        const result = executeTargetAction(targetAction, gameRef.current.currentPlayer, selectedCoin, targetUnit, targets[targetIndex], gameRef.current);
         setMessageError(!result.success); setMessage(result.message);
         if (result.success) { afterActionSuccess(result); setTargetAction(undefined); }
         else setMode("action");
       }
       return;
     }
-    if (mode === "action" && runtime.game) {
+    if (mode === "action" && gameRef.current) {
       if (key.name === "l") { setMode("log"); return; }
-      if (key.name === "left") setSelected((index: number) => Math.max(0, index - 1));
-      if (key.name === "right") setSelected((index: number) => Math.min(Math.max(0, actions.length - 1), index + 1));
+      if (key.name === "left") setSelected((index: number) => moveActionSelection(index, "left", actions.length));
+      if (key.name === "right") setSelected((index: number) => moveActionSelection(index, "right", actions.length));
       if (key.name === "escape") { setMode("coin"); setMessage("Escoge otra moneda o confirma esta."); return; }
       if (key.name === "return") {
         const action = actions[selected];
         if (!action) return;
         const selectedHandCoin = view.hand[selectedCoin];
-        const selectedType = (selectedHandCoin?.type as unknown) as UnitType | undefined;
-        const unit = ownUnitPositions(view, runtime.game.currentPlayer, selectedType)[0];
+        const selectedType = selectedHandCoin?.type;
+        const unit = ownUnitPositions(view, gameRef.current.currentPlayer, selectedType)[0];
         if (action === "recruit") { setRecruitIndex(0); setMode("recruit"); setMessage("Elige una de tus tropas en la reserva para reclutar una moneda."); }
         else if (["deploy", "move", "attack", "control"].includes(action)) {
           setTargetAction(action); setTargetUnit(unit); setTargetIndex(0); setMode("targeting"); setMessage(`Selecciona el objetivo para ${action}.`);
         } else if (action === "ability") {
-          const player = runtime.game.currentPlayer;
+          const player = gameRef.current.currentPlayer;
           const unitPos = ownUnitPositions(view, player, selectedType)[0];
-          if (!selectedType || unitPos === undefined || runtime.game.board.unitAt(unitPos) === undefined) {
+          if (!selectedType || unitPos === undefined || gameRef.current.board.unitAt(unitPos) === undefined) {
             setMessageError(true); setMessage("No hay una unidad tuya de este tipo en el tablero para usar su habilidad.");
             return;
           }
-          const progress = abilityStep(runtime.game, player, runtime.game.board.unitAt(unitPos)!, []);
+          const progress = abilityStep(gameRef.current, player, gameRef.current.board.unitAt(unitPos)!, []);
           if ("request" in progress || progress.step.options.length === 0) {
             setMessageError(true); setMessage("Esta unidad no tiene ningún blanco válido para su habilidad ahora.");
             return;
@@ -398,7 +492,7 @@ export function App() {
           setAbilityIndex(0);
           setMessage(progress.step.title);
           setMode("ability");
-        } else executeAction(action, selectedCoin, runtime.game, refresh, setMessage, setMessageError, pushLog, setMode, setView, setTurnPlayer, setTurnRound, setTurnInitiative);
+        } else executeAction(action, selectedCoin, gameRef.current!, domainCallbacks);
       }
     }
   });
@@ -410,12 +504,11 @@ export function App() {
   if (mode === "draft" && draft) return <DraftView available={draft.available} selected={selected} player={draft.currentPlayer === "player1" ? "Lobos" : "Cuervos"} playerId={draft.currentPlayer} lot={draft.currentLot} chosen={draft.results} />;
   if (mode === "turn") return <TurnView player={turnPlayer} round={turnRound} initiative={turnInitiative} />;
   if (mode === "victory") return <VictoryView faction={view.winner === "player1" ? "Lobos" : "Cuervos"} round={view.round} />;
-  if (mode === "recruit" && runtime.game) {
-    const reserveTypes = runtime.game.player(runtime.game.currentPlayer).unitCards.filter((type) => runtime.game!.player(runtime.game!.currentPlayer).reserve.countUnit(type) > 0);
-    return <box style={{ flexDirection: "column", flexGrow: 1, backgroundColor: COLORS.background }}><BoardView view={view} hint="PASO 3/3 · elige la tropa de la reserva" /><box style={{ flexDirection: "column", flexGrow: 1, border: true, borderColor: COLORS.accent }}><text fg={COLORS.accent}>RECLUTAR UNA MONEDA</text><text>La moneda elegida de tu mano y la moneda reclutada irán al descarte.</text><box style={{ flexDirection: "row" }}>{reserveTypes.map((type, index) => <box key={`reserve-${type}`} style={{ border: true, borderColor: index === recruitIndex ? COLORS.accent : COLORS.border, width: 26, height: 4 }}><text fg={index === recruitIndex ? COLORS.accent : COLORS.text}>{`${index === recruitIndex ? "▶" : "  "} ${index + 1}. ${type}`}</text><text fg={COLORS.muted}>{`Reserva: ${runtime.game!.player(runtime.game!.currentPlayer).reserve.countUnit(type)}`}</text></box>)}</box><text fg={COLORS.muted}>← → elegir tropa · Enter reclutar · Esc volver a acciones</text></box></box>;
+  if (mode === "recruit" && gameRef.current) {
+    return <box style={{ flexDirection: "column", flexGrow: 1, backgroundColor: COLORS.background }}><BoardView view={view} hint="PASO 3/3 · elige la tropa de la reserva" /><box style={{ flexDirection: "column", flexGrow: 1, border: true, borderColor: COLORS.accent }}><text fg={COLORS.accent}>RECLUTAR UNA MONEDA</text><text>La moneda elegida de tu mano y la moneda reclutada irán al descarte.</text><box style={{ flexDirection: "row" }}>{reserveTypes.map((type, index) => <box key={`reserve-${type}`} style={{ border: true, borderColor: index === recruitIndex ? COLORS.accent : COLORS.border, width: 26, height: 4 }}><text fg={index === recruitIndex ? COLORS.accent : COLORS.text}>{`${index === recruitIndex ? "▶" : "  "} ${index + 1}. ${type}`}</text><text fg={COLORS.muted}>{`Reserva: ${gameRef.current!.player(gameRef.current!.currentPlayer).reserve.countUnit(type)}`}</text></box>)}</box><text fg={COLORS.muted}>← → elegir tropa · Enter reclutar · Esc volver a acciones</text></box></box>;
   }
-  if (mode === "free-maneuver" && runtime.game && fmGrants.length > 0) {
-    const player = runtime.game.currentPlayer;
+  if (mode === "free-maneuver" && gameRef.current && fmGrants.length > 0) {
+    const player = gameRef.current.currentPlayer;
     const grant = fmGrants[fmGrantIndex];
     if (fmStep === "target" && grant && fmKind) {
       const targets = targetPositions(view, player, fmKind, grant.unit.position);
@@ -438,10 +531,10 @@ export function App() {
       </box>
     </box>;
   }
-  if (mode === "ability" && runtime.game && abilityUnitPos) {
-    const unit = runtime.game.board.unitAt(abilityUnitPos);
+  if (mode === "ability" && gameRef.current && abilityUnitPos) {
+    const unit = gameRef.current.board.unitAt(abilityUnitPos);
     if (unit !== undefined) {
-      const progress = abilityStep(runtime.game, runtime.game.currentPlayer, unit, abilityTokens);
+      const progress = abilityStep(gameRef.current, gameRef.current.currentPlayer, unit, abilityTokens);
       if ("step" in progress) {
         const options = progress.step.options;
         // Paso con SOLO blancos de casilla (Caballería, Caballería ligera,
@@ -466,7 +559,7 @@ export function App() {
       }
     }
   }
-  if (mode === "targeting" && targetAction && runtime.game) return <TargetingView view={view} action={targetAction} targets={targetPositions(view, runtime.game.currentPlayer, targetAction, targetUnit, view.hand[selectedCoin]?.type)} selected={targetIndex} />;
+  if (mode === "targeting" && targetAction && gameRef.current) return <TargetingView view={view} action={targetAction} targets={targetPositions(view, gameRef.current.currentPlayer, targetAction, targetUnit, view.hand[selectedCoin]?.type)} selected={targetIndex} />;
 
   const selectedType = view.hand[selectedCoin]?.type;
   // Tropas del jugador actual que puede jugar AHORA: en "coin" son los tipos
@@ -482,18 +575,23 @@ export function App() {
   </box>;
 }
 
-async function finishDraft(draft: DraftSession, setView: (view: GameStateView) => void, setMode: (mode: Mode) => void, setMessage: (message: string) => void, pushLog: (entries: readonly LogEntry[]) => void, setTurnPlayer: (player: PlayerId) => void, setTurnRound: (round: number) => void, setTurnInitiative: (initiative: boolean) => void) {
-  const board = await new SVGBoardLoader().load();
-  const config = configureGame(board, draft.results);
-  const game = new Game({ board, players: { player1: config.player1, player2: config.player2 }, initiative: config.initiative });
-  runtime.game = game;
-  const started = game.startRound();
-  setView(projectGame(game, game.currentPlayer, started.events)); setMessage(started.message);
-  pushLog(entriesFromResult(started, game.currentPlayer));
-  setTurnPlayer(game.currentPlayer);
-  setTurnRound(game.round);
-  setTurnInitiative(game.initiative === game.currentPlayer);
-  setMode("turn");
+async function finishDraft(draft: DraftSession, callbacks: DomainCallbacks): Promise<void> {
+  try {
+    const board = await new SVGBoardLoader().load();
+    const config = configureGame(board, draft.results);
+    const game = new Game({ board, players: { player1: config.player1, player2: config.player2 }, initiative: config.initiative });
+    const started = game.startRound();
+    callbacks.onGameStarted(game);
+    callbacks.pushLog(entriesFromResult(started, game.currentPlayer));
+    callbacks.onMessage(started.message);
+    callbacks.refresh(game, started.events);
+    callbacks.onTurnChange(game);
+  } catch (reason) {
+    // Carga/arranque fallido: mensaje claro y vuelta a un modo navegable (no
+    // dejar una promesa rechazada sin manejar en el flujo del draft).
+    const detail = reason instanceof Error ? reason.message : String(reason);
+    callbacks.onError(`No se pudo iniciar la partida (${detail}). Verifica assets/board/board-1v1.svg e inténtalo de nuevo.`);
+  }
 }
 
 function executeTargetAction(action: MenuAction, player: PlayerId, coinIndex: number, unitPosition: string | undefined, target: string, game: Game, royalGuardFromReserve = false): GameResult {
@@ -507,7 +605,7 @@ function executeTargetAction(action: MenuAction, player: PlayerId, coinIndex: nu
   return { success: false, message: "Acción no disponible en este paso.", events: [] };
 }
 
-function executeAction(action: MenuAction, coinIndex: number, game: Game, refresh: (events?: Parameters<typeof projectGame>[2]) => void, setMessage: (message: string) => void, setError: (error: boolean) => void, pushLog: (entries: readonly LogEntry[]) => void, setMode: (mode: Mode) => void, setView: (view: GameStateView) => void, setTurnPlayer: (player: PlayerId) => void, setTurnRound: (round: number) => void, setTurnInitiative: (initiative: boolean) => void) {
+function executeAction(action: MenuAction, coinIndex: number, game: Game, callbacks: DomainCallbacks): void {
   const player: PlayerId = game.currentPlayer;
   const local = game.player(player);
   const coin = local.hand.toArray()[coinIndex];
@@ -518,35 +616,29 @@ function executeAction(action: MenuAction, coinIndex: number, game: Game, refres
   else if (action === "initiative" && coin) result = game.claimInitiative(player, coin.isRoyal() ? { kind: "royal" } : { kind: "unit", unitType: unitType! });
   else if (action === "recruit" && coin) { const reserveType = local.unitCards.find((type) => local.reserve.countUnit(type) > 0); if (reserveType) result = game.recruit(player, coin.isRoyal() ? { kind: "royal" } : { kind: "unit", unitType: unitType! }, reserveType); }
   else if (action === "bolster" && unitType && game.board.findUnit(player, unitType)) result = game.bolster(player, unitType);
-  if (!result) { setError(true); setMessage("Esta acción necesita una selección adicional. Elige otra opción."); return; }
-  setError(!result.success); setMessage(result.message);
-  if (result.success) {
-    pushLog(entriesFromResult(result, player));
-    if (action === "pass" || action === "retire") {
-      if (game.roundOver) {
-        const ended = game.endRound();
-        setMessage(ended.message);
-        const started = game.startRound();
-        pushLog([...entriesFromResult(ended, player), ...entriesFromResult(started, player)]);
-        setView(projectGame(game, game.currentPlayer, started.success ? started.events : []));
-      } else {
-        setView(projectGame(game, game.currentPlayer, result.events));
-      }
-      setTurnPlayer(game.currentPlayer);
-      setTurnRound(game.round);
-      setTurnInitiative(game.initiative === game.currentPlayer);
-      setMode("turn");
+  if (!result) { callbacks.onMessage("Esta acción necesita una selección adicional. Elige otra opción.", true); return; }
+  callbacks.onMessage(result.message, !result.success);
+  if (!result.success) return;
+  callbacks.pushLog(entriesFromResult(result, player));
+  if (action === "pass" || action === "retire") {
+    if (game.roundOver) {
+      const ended = game.endRound();
+      const started = game.startRound();
+      callbacks.pushLog([...entriesFromResult(ended, player), ...entriesFromResult(started, player)]);
+      callbacks.onMessage(started.success ? started.message : ended.message);
+      callbacks.refresh(game, started.success ? started.events : []);
     } else {
-      refresh(result.events);
-      if (game.winner) { setView(projectGame(game, player, result.events)); setMode("victory"); }
-      else {
-        game.nextTurn();
-        setView(projectGame(game, game.currentPlayer, result.events));
-        setTurnPlayer(game.currentPlayer);
-        setTurnRound(game.round);
-        setTurnInitiative(game.initiative === game.currentPlayer);
-        setMode("turn");
-      }
+      callbacks.refresh(game, result.events);
     }
+    callbacks.onTurnChange(game);
+    return;
   }
+  callbacks.refresh(game, result.events);
+  if (game.winner) {
+    callbacks.setMode("victory");
+    return;
+  }
+  game.nextTurn();
+  callbacks.refresh(game, result.events);
+  callbacks.onTurnChange(game);
 }

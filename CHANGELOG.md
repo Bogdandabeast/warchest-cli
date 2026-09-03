@@ -2,6 +2,15 @@
 
 ## Unreleased — Ciclo 3: cliente TUI
 
+- **Las imágenes están en el alcance del cliente con fallback textual**
+  (decisión registrada): las monedas PNG de cada tropa, la ficha de control,
+  el logo del título y la vista previa del playmat se cargan bajo demanda
+  (`troop-images.ts`/`board-images.ts`) y CADA uso conserva un respaldo de
+  texto/glifos (logo ASCII, `◉`/glifo, `◯`/`●`), de modo que el fallo de
+  una imagen (PNG no versionado ausente, terminal sin Kitty/Sixel, PNG que
+  excede ~4096 px) nunca bloquea la partida — observable: la TUI completa
+  sigue siendo jugable sin ninguna imagen.
+
 - **Se resaltan las tropas que el jugador PUEDE jugar este turno** (pedido
   del usuario: "no se distinguen bien las tropas que podemos hacer"): en la
   pantalla de elegir moneda (`coin`) el tablero marca con un halo de acento

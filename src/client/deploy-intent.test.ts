@@ -25,4 +25,13 @@ describe("deploy intent", () => {
     expect(game.board.unitAt("C1")?.type).toBe("piquero");
     expect(game.player("player1").hand.hasUnit("arquero")).toBe(true);
   });
+
+  test("rejects a deployment to an uncontrolled non-location (D1)", () => {
+    const game = makeGame();
+    const result = game.deploy("player1", "piquero", "D1");
+    expect(result.success).toBe(false);
+    expect(game.board.unitAt("D1")).toBeUndefined();
+    // La moneda no se gasta: el piquero sigue en la mano.
+    expect(game.player("player1").hand.hasUnit("piquero")).toBe(true);
+  });
 });

@@ -103,9 +103,11 @@
   dibuja las casillas como hexágonos de color con medio-bloques `▀`, con la
   misma geometría, contracción (0.88) y paleta que
   `render-board-terminal.ts`. La escala es uniforme (proporción real, sin
-  estirar) y el lienzo llena el área disponible: filas = terminal − 12
-  (mano/menú, cabecera y ayudas), ancho = filas × 2 × 1632/1802 recortado a
-  la terminal. El usuario eligió casillas GRANDES llenando el área, no los
+  estirar) y el lienzo llena el área disponible: filas = terminal − 18
+  (`RESERVED_ROWS`, subió de 12 a 18 cuando la zona de descarte entró en la
+  pantalla de partida, para que descarte, mano/menú, mensajes y ayudas no se
+  solapen con el tablero), ancho = filas × 2 × 1632/1802 recortado a la
+  terminal. El usuario eligió casillas GRANDES llenando el área, no los
   márgenes laterales del SVG completo.
 - **Las monedas siguen siendo la imagen del caballero encima de los
   hexágonos** (decisión del usuario: "hexágonos coloreados + monedas PNG
@@ -169,8 +171,18 @@
   stdin.
 - `src/client/engine-view.ts` es la única frontera hacia el dominio: produce
   snapshots copiados y oculta completamente las monedas de la mano y reserva
-  del rival. Los helpers de mapa y menú son funciones puras y tienen pruebas
-  unitarias sin terminal real.
+  del rival — el panel del oponente solo muestra su RECUENTO (`mano ??? (n)`
+  / `reserva ??? (n)`), nunca símbolos, tipos ni detalles de sus monedas (no
+  son información pública en el juego físico). Los helpers de mapa y menú son
+  funciones puras y tienen pruebas unitarias sin terminal real.
+- **El alcance del cliente incluye imágenes con fallback textual** (decisión
+  del usuario: monedas PNG sobre el tablero, PNG por tropa, ficha de control
+  grande, logo del título): las imágenes se cargan bajo demanda con un solo
+  cargador (`troop-images.ts` / `board-images.ts`) y CADA uso conserva un
+  respaldo de texto/glifos (logo ASCII, `◉`/glifo de unidad, `◯`/`●` de
+  ficha) para terminales sin Kitty/Sixel, PNGs ausentes o fallos de
+  decodificación — observable: la partida siempre es jugable aunque ninguna
+  imagen cargue.
 - La primera entrega mantiene la pantalla densa y los cuatro bloques FF
   siempre visibles; las acciones viables se calculan desde el snapshot y los
   errores del motor se muestran como mensajes, sin mutar reglas en la capa de

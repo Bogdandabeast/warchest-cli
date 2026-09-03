@@ -158,14 +158,22 @@ describe("hex board layout", () => {
       }
     }
     expect(ringCells).toBeGreaterThan(0);
-    // D6, en el centro, tiene halo por todos sus lados.
+    // D6, en el centro, tiene halo por todos sus lados. `ring`/`samples` viven
+    // en píxeles LÓGICOS (filas 0..rows·2−1) mientras que `centers` guarda la
+    // fila de TERMINAL (media altura), así que se convierte `d6.row` ×2 antes
+    // de indexar.
     const d6 = layout.centers.get("D6")!;
+    const d6Index = layout.locations.findIndex((loc) => loc.id === "D6");
+    expect(d6Index).toBeGreaterThanOrEqual(0);
+    const logicalRow = d6.row * 2; // fila lógica de la casilla (y +1 la de abajo)
     const found: number[] = [];
-    for (let dy = -6; dy <= 6; dy++) {
+    for (let dy = -12; dy <= 12; dy++) {
       for (let dx = -6; dx <= 6; dx++) {
-        const idx = (d6.row + dy) * w + (d6.col + dx);
+        const idx = (logicalRow + dy) * w + (d6.col + dx);
         if (idx < 0 || idx >= ring.length) continue;
-        if ((ring[idx] ?? -1) !== -1) found.push(idx);
+        // El halo de D6 rodea su perímetro: su PROPIO índice aparece en la
+        // ventana (no vale cualquier casilla cercana).
+        if ((ring[idx] ?? -1) === d6Index) found.push(idx);
       }
     }
     expect(found.length).toBeGreaterThan(0);

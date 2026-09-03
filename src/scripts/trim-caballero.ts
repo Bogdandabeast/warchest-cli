@@ -146,7 +146,18 @@ function finalizeChunk(out: Uint8Array, type: string, data: Uint8Array): Uint8Ar
   return out;
 }
 
-function encodePng(rgba: Uint8Array<ArrayBuffer>, width: number, height: number): Uint8Array<ArrayBuffer> {
+/**
+ * Escribe un PNG RGBA8 a mano (signature + IHDR + IDAT zlib + IEND). Recibe
+ * el STRIDE REAL del buffer fuente (`outRaw.stride` de NativeImage, que puede
+ * incluir padding por fila y no siempre es `width × 4`): cada scanline del
+ * PNG se copia desde `y · sourceStride` y el ancho RGBA esperado por scanline
+ * es `width × 4`.
+ */
+function encodePng(rgba: Uint8Array<ArrayBuffer>, width: number, height: number, sourceStride: number): Uint8Array<ArrayBuffer> {
+  const pngStride = width * 4;
+  if (sourceStride < pngStride || rgba.byteLength < height * sourceStride) {
+    throw new Error(`encodePng: stride ${sourceStride} inválido para un buffer RGBA de ${width}×${height}.`);
+  }
   const signature = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
   const ihdr = new Uint8Array(13);
   const ihdrView = new DataView(ihdr.buffer);
@@ -155,11 +166,10 @@ function encodePng(rgba: Uint8Array<ArrayBuffer>, width: number, height: number)
   ihdr[8] = 8; // bit depth
   ihdr[9] = 6; // color type RGBA
   // raw scanlines con filtro 0
-  const stride = width * 4;
-  const raw = new Uint8Array(new ArrayBuffer((stride + 1) * height));
+  const raw = new Uint8Array(new ArrayBuffer((pngStride + 1) * height));
   for (let y = 0; y < height; y++) {
-    raw[y * (stride + 1)] = 0;
-    raw.set(rgba.subarray(y * stride, (y + 1) * stride), y * (stride + 1) + 1);
+    raw[y * (pngStride + 1)] = 0;
+    raw.set(rgba.subarray(y * sourceStride, y * sourceStride + pngStride), y * (pngStride + 1) + 1);
   }
   const idatData = zlibStream(raw);
   const parts = [
@@ -216,9 +226,14 @@ try {
         const outWidth = resized.width;
         const outHeight = resized.height;
         const outRaw = resized.raw();
+        // El resize debe devolver RGBA8: se valida antes de codificar (un
+        // formato distinto daría un PNG corrupto, no un fallo claro).
+        if (outRaw.format !== "rgba8") {
+          throw new Error(`El resize a ${size}px devolvió formato ${outRaw.format} (se esperaba rgba8).`);
+        }
         const rgba = new Uint8Array(new ArrayBuffer(outRaw.data.byteLength));
         rgba.set(outRaw.data, 0);
-        const png = encodePng(rgba, outWidth, outHeight);
+        const png = encodePng(rgba, outWidth, outHeight, outRaw.stride);
         const file = `assets/troops/caballero${suffix === "coin" ? "-coin" : ""}-${name}.png`;
         await writeFile(file, png);
         console.log(`  ✓ ${file} (${outWidth}×${outHeight})`);

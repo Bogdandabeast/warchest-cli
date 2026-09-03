@@ -1,11 +1,13 @@
 import type { GameStateView } from "./engine-view.ts";
 import type { Position } from "../domain/types.ts";
 
-export const BOARD_PIXEL_WIDTH = 56;
-export const BOARD_PIXEL_HEIGHT = 26;
 export const BOARD_CELL_WIDTH = 8;
 export const HEX_HEIGHT = 2;
 const COLUMNS = ["A", "B", "C", "D", "E", "F", "G"] as const;
+/** Sangría de las filas impares (el reticulado hexagonal alterna las columnas). */
+const INDENT = "    ";
+
+export const BOARD_PIXEL_HEIGHT = 26;
 
 export const PIXEL_COLORS = {
   normal: "#8fff91",
@@ -22,7 +24,7 @@ export function renderPixelRows(view: GameStateView, cursor?: Position, validTar
   const targets = new Set(validTargets);
   const rows: PixelRow[] = [];
   for (let row = 0; row <= 12; row++) {
-    const indent = row % 2 === 0 ? "" : "    ";
+    const indent = row % 2 === 0 ? "" : INDENT;
     const segments: PixelSegment[] = indent ? [{ text: indent, color: PIXEL_COLORS.table }] : [];
     for (const column of COLUMNS) {
       const position = `${column}${row}`;
@@ -49,3 +51,14 @@ export function renderPixelBoard(view: GameStateView, cursor?: Position, validTa
 export function renderBoardRows(view: GameStateView, cursor?: Position, validTargets: readonly Position[] = []): string[] {
   return renderPixelBoard(view, cursor, validTargets);
 }
+
+/**
+ * Ancho máximo (en caracteres) de una fila generada por `renderPixelBoard`:
+ * cada columna ocupa `BOARD_CELL_WIDTH + 1` (glifo + separador) y las filas
+ * impares añaden la sangría del reticulado. Se deriva del render real (una
+ * vista vacía ya produce la geometría completa) para que nunca se quede corto
+ * respecto a las filas pintadas.
+ */
+export const BOARD_PIXEL_WIDTH = Math.max(
+  ...renderPixelRows({ board: {} } as GameStateView).map((row) => row.map((segment) => segment.text).join("").length),
+);
